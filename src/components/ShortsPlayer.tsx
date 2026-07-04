@@ -1,0 +1,445 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Share2, Volume2, VolumeX, ChevronUp, ChevronDown, Check, Send, Plus, Disc } from 'lucide-react';
+import { Video, Comment } from '../types';
+
+interface ShortsPlayerProps {
+  shorts: Video[];
+  activeIdx: number;
+  onIndexChange: (idx: number) => void;
+  comments: Comment[];
+  onAddComment: (videoId: string, text: string) => void;
+  onLike: (videoId: string) => void;
+  onDislike: (videoId: string) => void;
+  onSubscribe: (creatorId: string) => void;
+  onShare: (videoId: string) => void;
+}
+
+export default function ShortsPlayer({
+  shorts,
+  activeIdx,
+  onIndexChange,
+  comments,
+  onAddComment,
+  onLike,
+  onDislike,
+  onSubscribe,
+  onShare
+}: ShortsPlayerProps) {
+  const video = shorts[activeIdx];
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
+  const [newComment, setNewComment] = useState('');
+
+  // Animate canvas short looping visualizer
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+    let frame = 0;
+
+    // particle setup
+    const particles: { x: number; y: number; speed: number; size: number; color: string; drift: number }[] = [];
+    for (let i = 0; i < 35; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        speed: Math.random() * 0.9 + 0.3,
+        size: Math.random() * 3 + 1,
+        color: video.url === 'heavenly_particle' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(239, 68, 68, 0.3)',
+        drift: Math.random() * 0.4 - 0.2
+      });
+    }
+
+    const resize = () => {
+      canvas.width = canvas.parentElement?.clientWidth || 360;
+      canvas.height = canvas.parentElement?.clientHeight || 640;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const draw = () => {
+      frame++;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Dark background gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+      if (video.url === 'heavenly_particle') {
+        bgGrad.addColorStop(0, '#020617'); // dark sky slate
+        bgGrad.addColorStop(0.5, '#1e293b');
+        bgGrad.addColorStop(1, '#475569');
+      } else if (video.url === 'rescue_crane') {
+        bgGrad.addColorStop(0, '#090500'); // fiery warm dark
+        bgGrad.addColorStop(0.5, '#180e03');
+        bgGrad.addColorStop(1, '#2d1a08');
+      } else if (video.url === 'giant_eagle') {
+        bgGrad.addColorStop(0, '#022c22'); // deep jungle green
+        bgGrad.addColorStop(1, '#050b14');
+      } else {
+        bgGrad.addColorStop(0, '#09090b'); // black zinc
+        bgGrad.addColorStop(1, '#1c1917');
+      }
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Render custom atmospheric visual patterns based on short title
+      if (video.url === 'heavenly_particle') {
+        // --- GOT GOD moving light clouds ---
+        ctx.save();
+        ctx.translate(w / 2, h / 2.2);
+        const segments = 12;
+        for (let i = 0; i < segments; i++) {
+          const angle = (i * Math.PI * 2) / segments + (isPlaying ? frame * 0.001 : 0);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(angle - 0.1) * h, Math.sin(angle - 0.1) * h);
+          ctx.lineTo(Math.cos(angle + 0.1) * h, Math.sin(angle + 0.1) * h);
+          ctx.closePath();
+          const lightGlow = ctx.createRadialGradient(0, 0, 10, 0, 0, h / 1.5);
+          lightGlow.addColorStop(0, 'rgba(254, 240, 138, 0.14)');
+          lightGlow.addColorStop(1, 'rgba(254, 240, 138, 0)');
+          ctx.fillStyle = lightGlow;
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // draw GOD GOD glowing display text
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = '900 42px sans-serif';
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#fef08a';
+        ctx.fillText("GOT", w / 2, h / 2 - 25);
+        ctx.fillText("GOD", w / 2, h / 2 + 25);
+        ctx.shadowBlur = 0;
+
+      } else if (video.url === 'rescue_crane') {
+        // --- Red/Yellow industrial hazard pattern ---
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.15)';
+        ctx.lineWidth = 12;
+        for (let y = -200; y < h + 200; y += 40) {
+          ctx.beginPath();
+          ctx.moveTo(-100, y);
+          ctx.lineTo(w + 100, y + (isPlaying ? 150 + Math.sin(frame * 0.01) * 20 : 150));
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText("RESCUE ACTIVE", w / 2, h / 2 - 10);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px sans-serif';
+        ctx.fillText("Stabilizing Crane Support", w / 2, h / 2 + 15);
+
+      } else if (video.url === 'giant_eagle') {
+        // --- Forest visualizer ---
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate(frame * 0.002);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          ctx.strokeRect(-60 - i * 15, -60 - i * 15, 120 + i * 30, 120 + i * 30);
+        }
+        ctx.restore();
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#34d399';
+        ctx.font = '900 24px sans-serif';
+        ctx.fillText("APEX EAGLE", w / 2, h / 2 - 10);
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '12px sans-serif';
+        ctx.fillText("Interactive sanctuary logs", w / 2, h / 2 + 15);
+      } else {
+        // --- Default abstract dynamic loop ---
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText(video.title, w / 2, h / 2);
+      }
+
+      // Draw standard particles rising
+      particles.forEach((p) => {
+        if (isPlaying) {
+          p.y -= p.speed;
+          p.x += p.drift;
+          if (p.y < 0) {
+            p.y = h;
+            p.x = Math.random() * w;
+          }
+        }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+      });
+
+      // Play/Pause indicator overlay when paused
+      if (!isPlaying) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, 28, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(w / 2 - 6, h / 2 - 10);
+        ctx.lineTo(w / 2 + 10, h / 2);
+        ctx.lineTo(w / 2 - 6, h / 2 + 10);
+        ctx.closePath();
+        ctx.fillStyle = '#000000';
+        ctx.fill();
+      }
+
+      animationId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', resize);
+    };
+  }, [video, isPlaying]);
+
+  // Handle keypresses or wheel
+  const handlePrev = () => {
+    if (activeIdx > 0) onIndexChange(activeIdx - 1);
+  };
+
+  const handleNext = () => {
+    if (activeIdx < shorts.length - 1) onIndexChange(activeIdx + 1);
+  };
+
+  const currentShortComments = comments.filter(c => c.videoId === video.id);
+
+  const handlePostComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    onAddComment(video.id, newComment.trim());
+    setNewComment('');
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row items-center justify-center gap-6 bg-zinc-950 p-4 rounded-3xl border border-zinc-900 shadow-2xl h-[calc(100vh-100px)] relative" id="shorts-hub-container">
+      
+      {/* Scroll Chevrons Navigation (Matching the right vertical round buttons in the screenshot!) */}
+      <div className="absolute right-4 md:right-8 flex flex-col gap-4 z-10">
+        <button
+          onClick={handlePrev}
+          disabled={activeIdx === 0}
+          className="p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 rounded-full text-zinc-300 hover:text-white transition-all cursor-pointer shadow-lg"
+          title="Scroll up"
+        >
+          <ChevronUp className="w-5 h-5" />
+        </button>
+        <button
+          onClick={handleNext}
+          disabled={activeIdx === shorts.length - 1}
+          className="p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 rounded-full text-zinc-300 hover:text-white transition-all cursor-pointer shadow-lg"
+          title="Scroll down"
+        >
+          <ChevronDown className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Main Shorts Container: Renders 9:16 portrait viewport */}
+      <div className="relative w-full max-w-[340px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200">
+        <canvas
+          ref={canvasRef}
+          onClick={() => setIsPlaying(!isPlaying)}
+          className="w-full h-full block cursor-pointer"
+        />
+
+        {/* Floating Sidebar Quick Action Rail (Like, Dislike, Comments drawer, Share, Audio) */}
+        <div className="absolute right-3.5 bottom-16 flex flex-col items-center gap-5 z-20 text-white" id="shorts-action-rail">
+          {/* Creator Profile Shortcut */}
+          <div className="relative group">
+            <img
+              src={video.creator.avatar}
+              alt=""
+              className="w-9 h-9 rounded-full object-cover border border-white/80"
+              referrerPolicy="no-referrer"
+            />
+            {!video.creator.isSubscribed && (
+              <button
+                onClick={() => onSubscribe(video.creator.id)}
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-gold-500 hover:bg-gold-600 rounded-full w-4.5 h-4.5 flex items-center justify-center text-[10px] font-bold border border-[#0a0a0c] cursor-pointer text-black"
+                title="Subscribe"
+              >
+                <Plus className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Like */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => onLike(video.id)}
+              className={`p-3 rounded-full shadow-md cursor-pointer transition-all ${video.isLiked ? 'bg-gold-500 text-black scale-110' : 'bg-black/60 hover:bg-black/80 text-zinc-300'}`}
+            >
+              <ThumbsUp className="w-4.5 h-4.5 fill-current" />
+            </button>
+            <span className="text-[10px] font-mono font-bold mt-1 text-zinc-300">{video.likes + (video.isLiked ? 1 : 0)}</span>
+          </div>
+
+          {/* Dislike */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => onDislike(video.id)}
+              className={`p-3 rounded-full shadow-md cursor-pointer transition-all ${video.isDisliked ? 'bg-zinc-700 text-gold-400' : 'bg-black/60 hover:bg-black/80 text-zinc-300'}`}
+            >
+              <ThumbsDown className="w-4.5 h-4.5 fill-current" />
+            </button>
+            <span className="text-[10px] font-mono font-bold mt-1 text-zinc-300">Dislike</span>
+          </div>
+
+          {/* Comments Trigger */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => setShowCommentsDrawer(true)}
+              className="p-3 bg-black/60 hover:bg-black/80 text-zinc-300 rounded-full shadow-md cursor-pointer transition-colors"
+            >
+              <MessageSquare className="w-4.5 h-4.5 fill-current" />
+            </button>
+            <span className="text-[10px] font-mono font-bold mt-1 text-zinc-300">{currentShortComments.length}</span>
+          </div>
+
+          {/* Share */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => onShare(video.id)}
+              className="p-3 bg-black/60 hover:bg-black/80 text-zinc-300 rounded-full shadow-md cursor-pointer transition-colors"
+            >
+              <Share2 className="w-4.5 h-4.5" />
+            </button>
+            <span className="text-[10px] font-mono font-bold mt-1 text-zinc-300">Share</span>
+          </div>
+
+          {/* Mute */}
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className="p-3 bg-black/60 hover:bg-black/80 text-zinc-300 rounded-full shadow-md cursor-pointer transition-colors"
+          >
+            {isMuted ? <VolumeX className="w-4.5 h-4.5" /> : <Volume2 className="w-4.5 h-4.5" />}
+          </button>
+        </div>
+
+        {/* Overlay Bottom Description & Music Marquee Panel */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent text-left space-y-2 z-10 pointer-events-auto">
+          {/* Channel metadata */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-white tracking-wide">@{video.creator.name.replace(/\s+/g, '').toLowerCase()}</span>
+            <button
+              onClick={() => onSubscribe(video.creator.id)}
+              className={`px-3 py-1 rounded-full text-[9px] font-semibold tracking-wide transition-colors ${
+                video.creator.isSubscribed 
+                  ? 'bg-zinc-800 text-zinc-400' 
+                  : 'bg-white text-black hover:bg-zinc-200'
+              }`}
+            >
+              {video.creator.isSubscribed ? 'Subscribed' : 'Subscribe'}
+            </button>
+          </div>
+
+          {/* Title description */}
+          <p className="text-[11px] text-zinc-200 leading-normal line-clamp-2">
+            {video.description}
+          </p>
+
+          {/* Music track sliding marquee! Extremely high-fidelity */}
+          <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] bg-black/30 px-2.5 py-1 rounded-full w-fit overflow-hidden max-w-[180px]">
+            <Disc className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+            <div className="whitespace-nowrap overflow-hidden relative w-32">
+              <span className="inline-block animate-marquee font-mono">
+                Original Audio - @{video.creator.name.replace(/\s+/g, '').toLowerCase()}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay Drawer or Right Column Comments list on desktop (Improves usability immensely!) */}
+      {showCommentsDrawer && (
+        <div className="w-full lg:w-[350px] bg-zinc-900 border border-zinc-800 rounded-3xl p-4 flex flex-col h-full max-h-[500px] lg:max-h-full animate-in slide-in-from-right duration-200 z-30 relative" id="shorts-comments-drawer">
+          <div className="flex items-center justify-between border-b border-zinc-850 pb-2 mb-3">
+            <span className="text-xs font-semibold text-zinc-300 font-mono uppercase tracking-widest flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-gold-500" />
+              Comments ({currentShortComments.length})
+            </span>
+            <button
+              onClick={() => setShowCommentsDrawer(false)}
+              className="p-1 text-zinc-500 hover:text-white rounded"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Comments stream scroll */}
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-left">
+            {currentShortComments.length === 0 ? (
+              <p className="text-[10px] text-zinc-500 text-center py-8 font-mono">No comments yet. Share your thoughts first!</p>
+            ) : (
+              currentShortComments.map((comment) => (
+                <div key={comment.id} className="bg-zinc-950 p-2.5 rounded-xl border border-zinc-850 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <img src={comment.userAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                    <span className="text-[10px] font-semibold text-zinc-300 truncate">{comment.userName}</span>
+                    <span className="text-[8px] text-zinc-600 font-mono ml-auto">{comment.timestamp}</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">{comment.text}</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Quick write comment */}
+          <form onSubmit={handlePostComment} className="flex gap-1.5 mt-3 pt-2 border-t border-zinc-850">
+            <input
+              type="text"
+              placeholder="Comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="flex-1 bg-zinc-950 border border-zinc-850 text-[11px] px-2.5 py-1.5 rounded-lg text-zinc-300 outline-none focus:border-zinc-700"
+            />
+            <button
+              type="submit"
+              disabled={!newComment.trim()}
+              className="bg-gold-500 hover:bg-gold-600 text-black rounded-lg p-1.5 flex items-center justify-center cursor-pointer disabled:opacity-40"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function XIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
