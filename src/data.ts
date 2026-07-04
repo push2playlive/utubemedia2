@@ -42,12 +42,12 @@ export const creators: Creator[] = [
   },
   {
     id: 'creator_braxtheog9',
-    name: 'Braxtheog9',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-    subscribers: 5800,
+    name: 'Utube Chat',
+    avatar: 'https://images.unsplash.com/photo-1618519764620-7403abdbfee9?w=150', // high quality camera studio red-orange backdrop
+    subscribers: 6,
     isSubscribed: false,
     hasStore: true,
-    storeName: 'Brax Tech & Apparel',
+    storeName: 'Utube Chat Official Gear',
     joinedDate: '2025-06-01'
   },
   {
@@ -78,6 +78,15 @@ export const creators: Creator[] = [
     hasStore: true,
     storeName: 'Tech Future Premium Store',
     joinedDate: '2022-03-14'
+  },
+  {
+    id: 'creator_think_media',
+    name: 'Think Media',
+    avatar: 'https://images.unsplash.com/photo-1618519764620-7403abdbfee9?w=150',
+    subscribers: 3490000,
+    isSubscribed: false,
+    hasStore: false,
+    joinedDate: '2015-04-12'
   }
 ];
 
@@ -173,6 +182,60 @@ export const initialProducts: StoreProduct[] = [
 export const initialVideos: Video[] = [
   // --- LONG VIDEOS ---
   {
+    id: 'video_utube_1',
+    title: 'The Most Affordable iPhone Ever Made Will Shock You!',
+    description: 'Apple iPhone 16e The Budget Beast Unveiled Review #iphone #iphone16e #smartphones #iphone16ereview. A deep dive review of specs, performance, and real-world value.',
+    url: 'iphone_review',
+    thumbnail: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800',
+    duration: '9:54',
+    views: 94,
+    uploadDate: '26 Feb 2025',
+    likes: 4,
+    dislikes: 0,
+    category: 'Pages',
+    creator: creators[4], // Utube Chat
+    isShort: false,
+    commentsCount: 0,
+    adEnabled: true,
+    subscriptionGated: false
+  },
+  {
+    id: 'video_utube_2',
+    title: 'Inside the White House Secrets & Security',
+    description: 'Add description. Today we go behind the scenes to uncover the secret rooms, security details, and historical facts of the world\'s most famous executive mansion.',
+    url: 'white_house_secrets',
+    thumbnail: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800',
+    duration: '11:24',
+    views: 9,
+    uploadDate: '22 Feb 2025',
+    likes: 1,
+    dislikes: 0,
+    category: 'Space savers',
+    creator: creators[4], // Utube Chat
+    isShort: false,
+    commentsCount: 0,
+    adEnabled: true,
+    subscriptionGated: false
+  },
+  {
+    id: 'video_utube_3',
+    title: 'Dubai Paradise or Problem The Real Story Behind The Glitter?',
+    description: 'Add description. Looking past the luxury and skylines, we analyze the structural and societal realities of Dubai.',
+    url: 'dubai_real_story',
+    thumbnail: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800',
+    duration: '10:13',
+    views: 22,
+    uploadDate: '22 Feb 2025',
+    likes: 2,
+    dislikes: 0,
+    category: 'Pages',
+    creator: creators[4], // Utube Chat
+    isShort: false,
+    commentsCount: 0,
+    adEnabled: true,
+    subscriptionGated: false
+  },
+  {
     id: 'video_wisdom_1',
     title: 'Chosen Ones: Don\'t Blame God if You Ignore this Prophetic Date 🔥',
     description: 'A message for the chosen generation. This prophetic breakdown details the spiritual alignment occurring between July 2nd, 3rd, and 4th, 2026. Join us as we inspect what scriptures say about standing firm and tuning your spirit to hear the still, small voice of guidance during turbulent times. Do not neglect your spiritual disciplines, study daily, and keep your lamps burning.',
@@ -245,6 +308,24 @@ export const initialVideos: Video[] = [
     commentsCount: 1,
     adEnabled: false,
     subscriptionGated: true // Gated premium stream!
+  },
+  {
+    id: 'video_think_media_1',
+    title: 'How to Live Stream on YouTube (Complete Beginner\'s Guide)',
+    description: 'Here\'s how to live stream on YouTube! Learn the complete step-by-step process to enable live streaming on YouTube. ✅ Get a 14-Day FREE Trial of Sean\'s favorite streaming/recording software HERE 👉 http://StreamWithThink.com \n\nWant to break through on YouTube? Join our FREE 3-Day YouTube Growth Sprint for the ultimate plan to start getting views and grow your channel fast! ➡️ http://YTSprint.com/\n\n0:00 Introduction\n1:45 Setting Up Your Equipment\n4:10 Choosing Streaming Software\n8:15 Configuring Live Stream Settings\n14:20 Engaging with Your Audience\n22:10 Monetizing Your Stream & Q&A',
+    url: 'think_media_live',
+    thumbnail: 'https://images.unsplash.com/photo-1618519764620-7403abdbfee9?w=800',
+    duration: '28:05',
+    views: 330000,
+    uploadDate: '1 year ago',
+    likes: 5600,
+    dislikes: 120,
+    category: 'Engineering',
+    creator: creators[8], // Think Media
+    isShort: false,
+    commentsCount: 15,
+    adEnabled: false,
+    subscriptionGated: true // Members only monetized video!
   },
 
   // --- SHORTS VIDEOS (Vertical Format, isShort: true) ---
@@ -345,6 +426,17 @@ export const initialVideos: Video[] = [
 
 // Initial preloaded comments with replies matching screenshots and spiritual/general discussions
 export const initialComments: Comment[] = [
+  {
+    id: 'c_utube_1',
+    videoId: 'video_wisdom_1',
+    userName: 'UtubeChat',
+    userAvatar: 'pp_logo',
+    text: 'the old bike',
+    likes: 0,
+    dislikes: 0,
+    timestamp: '0 seconds ago',
+    replies: []
+  },
   {
     id: 'c_1',
     videoId: 'video_wisdom_1',
@@ -542,6 +634,13 @@ export const initialWallet: UserWallet = {
 
 // Default system & user playlists
 export const initialPlaylists: Playlist[] = [
+  {
+    id: 'pl_history',
+    name: 'Watch History',
+    videoIds: ['video_wisdom_1'],
+    createdBy: 'user_me',
+    isSystem: true
+  },
   {
     id: 'pl_watch_later',
     name: 'Watch Later',

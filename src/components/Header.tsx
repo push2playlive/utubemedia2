@@ -10,6 +10,7 @@ interface HeaderProps {
   setSearchQuery: (q: string) => void;
   onOpenProfile: () => void;
   currentUser: { name: string; email: string; avatar: string; isCreator: boolean };
+  onToggleMobileMenu?: () => void;
 }
 
 export default function Header({
@@ -19,7 +20,8 @@ export default function Header({
   searchQuery,
   setSearchQuery,
   onOpenProfile,
-  currentUser
+  currentUser,
+  onToggleMobileMenu
 }: HeaderProps) {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -32,8 +34,18 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between bg-[#0a0a0c] px-4 py-2.5 border-b border-zinc-900/80" id="app-header">
-      {/* Brand Logo */}
+      {/* Brand Logo & Hamburger */}
       <div className="flex items-center gap-3">
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="p-1.5 rounded-lg bg-[#0f0f12] border border-zinc-800 text-zinc-400 hover:text-gold-400 cursor-pointer transition-colors"
+            title="Toggle Sidebar Menu"
+            id="mobile-hamburger-btn"
+          >
+            <Menu className="w-4.5 h-4.5" />
+          </button>
+        )}
         <button 
           onClick={() => onNavigate('home')}
           className="flex items-center gap-2 text-white font-semibold tracking-tight hover:opacity-90 transition-opacity cursor-pointer group"
@@ -94,14 +106,20 @@ export default function Header({
           {createMenuOpen && (
             <div className="absolute right-0 mt-2 w-52 bg-[#0f0f12] border border-zinc-800/85 rounded-xl shadow-2xl p-1.5 animate-in fade-in slide-in-from-top-2 duration-150 z-50" id="create-menu">
               <button
-                onClick={() => onOpenUpload('long')}
+                onClick={() => {
+                  onOpenUpload('long');
+                  setCreateMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <span className="w-6 h-6 rounded bg-gold-500/10 flex items-center justify-center text-gold-500">▶</span>
                 Upload Long Play Video
               </button>
               <button
-                onClick={() => onOpenUpload('short')}
+                onClick={() => {
+                  onOpenUpload('short');
+                  setCreateMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <span className="w-6 h-6 rounded bg-amber-500/10 flex items-center justify-center text-amber-500">⚡</span>
@@ -109,14 +127,20 @@ export default function Header({
               </button>
               <div className="h-px bg-zinc-800/60 my-1"></div>
               <button
-                onClick={() => onNavigate('lease-store')}
+                onClick={() => {
+                  onNavigate('lease-store');
+                  setCreateMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <Store className="w-4 h-4 text-gold-500" />
                 Lease an Online Store
               </button>
               <button
-                onClick={() => onNavigate('advertising')}
+                onClick={() => {
+                  onNavigate('advertising');
+                  setCreateMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <span className="w-4 h-4 text-amber-500 font-bold text-center leading-none">A</span>
@@ -165,7 +189,10 @@ export default function Header({
                 </div>
               </div>
               <button
-                onClick={() => onNavigate('wallet')}
+                onClick={() => {
+                  onNavigate('wallet');
+                  setWalletMenuOpen(false);
+                }}
                 className="w-full mt-3 py-2 bg-gradient-to-r from-gold-600 to-amber-600 text-black font-semibold rounded-lg text-xs text-center hover:opacity-90 transition-opacity cursor-pointer"
               >
                 Launch Multi-Currency Wallet
@@ -207,21 +234,30 @@ export default function Header({
                 )}
               </div>
               <button
-                onClick={() => onNavigate('admin')}
+                onClick={() => {
+                  onNavigate('admin');
+                  setProfileMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer mt-1"
               >
                 <Shield className="w-4 h-4 text-gold-500" />
                 Admin Creator Studio
               </button>
               <button
-                onClick={() => onNavigate('store')}
+                onClick={() => {
+                  onNavigate('store');
+                  setProfileMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <Store className="w-4 h-4 text-gold-400" />
                 Online Creator Stores
               </button>
               <button
-                onClick={onOpenProfile}
+                onClick={() => {
+                  onOpenProfile();
+                  setProfileMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <Settings className="w-4 h-4 text-zinc-400" />
@@ -229,7 +265,10 @@ export default function Header({
               </button>
               <div className="h-px bg-zinc-800 my-1"></div>
               <button
-                onClick={() => alert('Signing out of demo account')}
+                onClick={() => {
+                  alert('Signing out of demo account');
+                  setProfileMenuOpen(false);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />

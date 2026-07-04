@@ -132,3 +132,14 @@ export interface ChannelAnalytics {
   earningsByMonth: { month: string; amount: number }[];
   viewsByVideo: { videoTitle: string; views: number }[];
 }
+
+export interface VideoReport {
+  id: string;
+  videoId: string;
+  videoTitle: string;
+  reporterName: string;
+  reason: string;
+  details: string;
+  timestamp: string;
+  status: 'pending' | 'resolved' | 'dismissed';
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ThumbsUp, ThumbsDown, MessageSquare, Share2, Volume2, VolumeX, ChevronUp, ChevronDown, Check, Send, Plus, Disc } from 'lucide-react';
 import { Video, Comment } from '../types';
+import CommentsSection from './CommentsSection';
 
 interface ShortsPlayerProps {
   shorts: Video[];
@@ -12,6 +13,12 @@ interface ShortsPlayerProps {
   onDislike: (videoId: string) => void;
   onSubscribe: (creatorId: string) => void;
   onShare: (videoId: string) => void;
+  onAddReply: (commentId: string, text: string) => void;
+  onLikeComment: (commentId: string) => void;
+  onDislikeComment: (commentId: string) => void;
+  onHeartComment: (commentId: string) => void;
+  onLikeReply: (commentId: string, replyId: string) => void;
+  currentUser: { name: string; avatar: string };
 }
 
 export default function ShortsPlayer({
@@ -23,7 +30,13 @@ export default function ShortsPlayer({
   onLike,
   onDislike,
   onSubscribe,
-  onShare
+  onShare,
+  onAddReply,
+  onLikeComment,
+  onDislikeComment,
+  onHeartComment,
+  onLikeReply,
+  currentUser
 }: ShortsPlayerProps) {
   const video = shorts[activeIdx];
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -31,6 +44,67 @@ export default function ShortsPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
   const [newComment, setNewComment] = useState('');
+
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const lastScrollTime = useRef<number>(0);
+  const touchStartY = useRef<number | null>(null);
+
+  // Handle keypresses, wheel and swipes
+  const handlePrev = () => {
+    if (activeIdx > 0) onIndexChange(activeIdx - 1);
+  };
+
+  const handleNext = () => {
+    if (activeIdx < shorts.length - 1) onIndexChange(activeIdx + 1);
+  };
+
+  // Wheel scroll with passive: false to prevent browser bouncing / page scrolling
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+
+    const handleWheelNative = (e: WheelEvent) => {
+      // If user is inside the comments drawer, don't intercept wheel events so they can scroll comments
+      if (showCommentsDrawer) return;
+
+      e.preventDefault();
+
+      const now = Date.now();
+      if (now - lastScrollTime.current < 750) return; // 750ms cooldown for smooth, steady scrolling
+
+      if (e.deltaY > 10) {
+        handleNext();
+        lastScrollTime.current = now;
+      } else if (e.deltaY < -10) {
+        handlePrev();
+        lastScrollTime.current = now;
+      }
+    };
+
+    el.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheelNative);
+    };
+  }, [activeIdx, showCommentsDrawer, shorts.length]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diff = touchStartY.current - touchEndY;
+    // Swipe threshold of 45px
+    if (Math.abs(diff) > 45) {
+      if (diff > 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
+    }
+    touchStartY.current = null;
+  };
 
   // Animate canvas short looping visualizer
   useEffect(() => {
@@ -210,15 +284,6 @@ export default function ShortsPlayer({
     };
   }, [video, isPlaying]);
 
-  // Handle keypresses or wheel
-  const handlePrev = () => {
-    if (activeIdx > 0) onIndexChange(activeIdx - 1);
-  };
-
-  const handleNext = () => {
-    if (activeIdx < shorts.length - 1) onIndexChange(activeIdx + 1);
-  };
-
   const currentShortComments = comments.filter(c => c.videoId === video.id);
 
   const handlePostComment = (e: React.FormEvent) => {
@@ -252,7 +317,12 @@ export default function ShortsPlayer({
       </div>
 
       {/* Main Shorts Container: Renders 9:16 portrait viewport */}
-      <div className="relative w-full max-w-[340px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200">
+      <div 
+        ref={viewportRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="relative w-full max-w-[340px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200 select-none touch-pan-y"
+      >
         <canvas
           ref={canvasRef}
           onClick={() => setIsPlaying(!isPlaying)}
@@ -369,55 +439,34 @@ export default function ShortsPlayer({
 
       {/* Overlay Drawer or Right Column Comments list on desktop (Improves usability immensely!) */}
       {showCommentsDrawer && (
-        <div className="w-full lg:w-[350px] bg-zinc-900 border border-zinc-800 rounded-3xl p-4 flex flex-col h-full max-h-[500px] lg:max-h-full animate-in slide-in-from-right duration-200 z-30 relative" id="shorts-comments-drawer">
+        <div className="w-full lg:w-[380px] bg-zinc-900 border border-zinc-800 rounded-3xl p-4 flex flex-col h-full max-h-[500px] lg:max-h-full animate-in slide-in-from-right duration-200 z-30 relative" id="shorts-comments-drawer">
           <div className="flex items-center justify-between border-b border-zinc-850 pb-2 mb-3">
-            <span className="text-xs font-semibold text-zinc-300 font-mono uppercase tracking-widest flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-gold-500" />
-              Comments ({currentShortComments.length})
+            <span className="text-xs font-semibold text-zinc-300 font-mono uppercase tracking-widest">
+              Comments Studio
             </span>
             <button
               onClick={() => setShowCommentsDrawer(false)}
-              className="p-1 text-zinc-500 hover:text-white rounded"
+              className="p-1 text-zinc-500 hover:text-white rounded cursor-pointer transition-colors"
+              title="Close comments"
             >
               <XIcon className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Comments stream scroll */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-left">
-            {currentShortComments.length === 0 ? (
-              <p className="text-[10px] text-zinc-500 text-center py-8 font-mono">No comments yet. Share your thoughts first!</p>
-            ) : (
-              currentShortComments.map((comment) => (
-                <div key={comment.id} className="bg-zinc-950 p-2.5 rounded-xl border border-zinc-850 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <img src={comment.userAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                    <span className="text-[10px] font-semibold text-zinc-300 truncate">{comment.userName}</span>
-                    <span className="text-[8px] text-zinc-600 font-mono ml-auto">{comment.timestamp}</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">{comment.text}</p>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Quick write comment */}
-          <form onSubmit={handlePostComment} className="flex gap-1.5 mt-3 pt-2 border-t border-zinc-850">
-            <input
-              type="text"
-              placeholder="Comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 bg-zinc-950 border border-zinc-850 text-[11px] px-2.5 py-1.5 rounded-lg text-zinc-300 outline-none focus:border-zinc-700"
+          {/* Comments list with advanced interactive controls (like, dislike, heart, and reply) */}
+          <div className="flex-1 overflow-y-auto pr-1">
+            <CommentsSection
+              comments={currentShortComments}
+              onAddComment={(text) => onAddComment(video.id, text)}
+              onAddReply={onAddReply}
+              onLikeComment={onLikeComment}
+              onDislikeComment={onDislikeComment}
+              onHeartComment={onHeartComment}
+              onLikeReply={onLikeReply}
+              currentUser={currentUser}
+              creatorId={video.creator.id}
             />
-            <button
-              type="submit"
-              disabled={!newComment.trim()}
-              className="bg-gold-500 hover:bg-gold-600 text-black rounded-lg p-1.5 flex items-center justify-center cursor-pointer disabled:opacity-40"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
-          </form>
+          </div>
         </div>
       )}
     </div>

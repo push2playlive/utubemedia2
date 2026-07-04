@@ -10,6 +10,9 @@ import AdManager from './components/AdManager';
 import AdminDashboard from './components/AdminDashboard';
 import UploadModal from './components/UploadModal';
 import ProfileSettings from './components/ProfileSettings';
+import AuthView from './components/AuthView';
+import MusicView from './components/MusicView';
+import CreatorStudio from './components/CreatorStudio';
 
 // Mock Data
 import { 
@@ -21,8 +24,8 @@ import {
   initialProducts,
   creators 
 } from './data';
-import { Video, Comment, AdCampaign, UserWallet, Playlist, StoreProduct, StoreLease, Creator } from './types';
-import { Compass, Flame, Clock, Heart, Play, Plus, Trash2, List, Grid, Sparkles, Filter, Store, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Video, Comment, AdCampaign, UserWallet, Playlist, StoreProduct, StoreLease, Creator, VideoReport } from './types';
+import { Compass, Flame, Clock, Heart, Play, Plus, Trash2, List, Grid, Sparkles, Filter, Store, AlertCircle, ShoppingBag, Share2, Check, Copy, QrCode, History, Flag } from 'lucide-react';
 
 export default function App() {
   // --- Persistent State Hub via LocalStorage ---
@@ -49,6 +52,23 @@ export default function App() {
   const [campaigns, setCampaigns] = useState<AdCampaign[]>(() => {
     const saved = localStorage.getItem('ppl_campaigns');
     return saved ? JSON.parse(saved) : initialAdCampaigns;
+  });
+
+  const [reports, setReports] = useState<VideoReport[]>(() => {
+    const saved = localStorage.getItem('ppl_reports');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'rep_1',
+        videoId: 'vid_1',
+        videoTitle: 'A Moment of Silence | Atmospheric Study Logs',
+        reporterName: 'Faith_Walker_26',
+        reason: 'Spam / Misleading',
+        details: 'The title mentions Study Logs but it is just a looped black screen.',
+        timestamp: '2026-07-03 18:22',
+        status: 'pending'
+      }
+    ];
   });
 
   const [products, setProducts] = useState<StoreProduct[]>(() => {
@@ -85,12 +105,24 @@ export default function App() {
   });
 
   // User details state
-  const [currentUser, setCurrentUser] = useState(() => {
+  const [currentUser, setCurrentUser] = useState<{ 
+    name: string; 
+    email: string; 
+    avatar: string; 
+    bio?: string; 
+    isCreator: boolean;
+    tiktokApiKey?: string;
+    youtubeApiKey?: string;
+    instagramApiKey?: string;
+    facebookApiKey?: string;
+  } | null>(() => {
     const saved = localStorage.getItem('ppl_user');
+    if (saved === 'null') return null;
     return saved ? JSON.parse(saved) : {
       name: 'PushPlayUser',
       email: 'push2playlive@gmail.com',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+      bio: 'Atmospheric video connoisseur and certified audio engineer.',
       isCreator: true // Connected to admin channel by default to showcase admin panel!
     };
   });
@@ -98,8 +130,8 @@ export default function App() {
   // Current creator details (maps to currentUser details if they act as creator)
   const creatorDetails: Creator = {
     id: 'creator_braxtheog9', // matches Braxtheog9 mock profile
-    name: currentUser.name,
-    avatar: currentUser.avatar,
+    name: currentUser?.name || 'PushPlayUser',
+    avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
     subscribers: 5820,
     isSubscribed: false,
     hasStore: leases.some(l => l.creatorId === 'creator_braxtheog9' && l.status === 'active'),
@@ -116,6 +148,37 @@ export default function App() {
   const [uploadType, setUploadType] = useState<'long' | 'short'>('long');
   const [creatorMonetization, setCreatorMonetization] = useState(true);
   const [activeShortIdx, setActiveShortIdx] = useState(0);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [homePlaybackMode, setHomePlaybackMode] = useState<'long' | 'short'>('long');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isTheatreMode, setIsTheatreMode] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showQrModalForVideo, setShowQrModalForVideo] = useState<Video | null>(null);
+  const [showReportModal, setShowReportModal] = useState<Video | null>(null);
+  const [reportReason, setReportReason] = useState('Inappropriate Content');
+  const [reportDetails, setReportDetails] = useState('');
+
+  const handleToggleSidebar = () => {
+    if (window.innerWidth < 1024) {
+      setMobileMenuOpen(prev => !prev);
+    } else {
+      setSidebarCollapsed(prev => !prev);
+    }
+  };
+
+  // Close mobile navigation menu on ESC press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   // Sync state to local storage
   useEffect(() => {
@@ -139,6 +202,10 @@ export default function App() {
   }, [campaigns]);
 
   useEffect(() => {
+    localStorage.setItem('ppl_reports', JSON.stringify(reports));
+  }, [reports]);
+
+  useEffect(() => {
     localStorage.setItem('ppl_products', JSON.stringify(products));
   }, [products]);
 
@@ -154,6 +221,36 @@ export default function App() {
   const subscribedCreators = creators.filter(c => c.isSubscribed);
 
   // --- ACTIONS STATE HANDLERS ---
+
+  const handleCloseReportModal = () => {
+    setShowReportModal(null);
+    setReportReason('Inappropriate Content');
+    setReportDetails('');
+  };
+
+  const handleSubmitReport = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showReportModal) return;
+
+    const newReport: VideoReport = {
+      id: `rep_${Math.random().toString(36).substring(2, 9)}`,
+      videoId: showReportModal.id,
+      videoTitle: showReportModal.title,
+      reporterName: currentUser?.name || 'AnonymousUser',
+      reason: reportReason,
+      details: reportDetails.trim(),
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: 'pending'
+    };
+
+    const updatedReports = [newReport, ...reports];
+    setReports(updatedReports);
+    localStorage.setItem('ppl_reports', JSON.stringify(updatedReports));
+
+    setToastMessage('Report Submitted! Thank you for keeping the platform safe.');
+    setTimeout(() => setToastMessage(null), 3500);
+    handleCloseReportModal();
+  };
 
   // Handle Tipping
   const handleTipCreator = (creatorId: string, amount: number, description: string) => {
@@ -505,6 +602,27 @@ export default function App() {
     }));
   };
 
+  const handleEditComment = (commentId: string, newText: string) => {
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, text: newText } : c));
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    setComments(prev => {
+      const targetComment = prev.find(c => c.id === commentId);
+      if (!targetComment) return prev;
+      
+      // Update comments count on the video
+      setVideos(vids => vids.map(v => {
+        if (v.id === targetComment.videoId) {
+          return { ...v, commentsCount: Math.max(0, v.commentsCount - 1) };
+        }
+        return v;
+      }));
+
+      return prev.filter(c => c.id !== commentId);
+    });
+  };
+
   // Video Likes & Dislikes & Subscriptions
   const handleLikeVideo = (videoId: string) => {
     setVideos(prev => prev.map(v => {
@@ -571,15 +689,33 @@ export default function App() {
     }));
   };
 
-  const handleCreatePlaylist = (name: string, videoId: string) => {
+  const handleCreatePlaylist = (name: string, videoId?: string) => {
     const pl: Playlist = {
       id: `pl_${Math.random().toString(36).substring(2, 9)}`,
       name,
-      videoIds: [videoId],
+      videoIds: videoId ? [videoId] : [],
       createdBy: 'user_me'
     };
     setPlaylists(prev => [...prev, pl]);
-    alert(`Created playlist "${name}" and saved video.`);
+    alert(`Created playlist "${name}" successfully.`);
+  };
+
+  const handleDeletePlaylist = (playlistId: string) => {
+    setPlaylists(prev => prev.filter(pl => pl.id !== playlistId || pl.isSystem));
+    alert('Playlist deleted successfully.');
+  };
+
+  const handleUpdateVideoDescription = (videoId: string, newDescription: string) => {
+    setVideos(prev => prev.map(v => {
+      if (v.id === videoId) {
+        const updated = { ...v, description: newDescription };
+        if (selectedVideo && selectedVideo.id === videoId) {
+          setSelectedVideo(updated);
+        }
+        return updated;
+      }
+      return v;
+    }));
   };
 
   // Add uploaded video to lists
@@ -608,8 +744,35 @@ export default function App() {
   };
 
   // Update Profile Identity
-  const handleUpdateProfile = (name: string, email: string, avatar: string, isCreator: boolean) => {
-    setCurrentUser({ name, email, avatar, isCreator });
+  const handleUpdateProfile = (
+    name: string,
+    email: string,
+    avatar: string,
+    isCreator: boolean,
+    bio?: string,
+    tiktokApiKey?: string,
+    youtubeApiKey?: string,
+    instagramApiKey?: string,
+    facebookApiKey?: string
+  ) => {
+    setCurrentUser({
+      name,
+      email,
+      avatar,
+      isCreator,
+      bio,
+      tiktokApiKey,
+      youtubeApiKey,
+      instagramApiKey,
+      facebookApiKey
+    });
+  };
+
+  // Handle Logout
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.setItem('ppl_user', 'null');
+    setCurrentView('home');
   };
 
   // Navigation controller with page routing animations
@@ -618,12 +781,34 @@ export default function App() {
     setSearchQuery('');
     if (view === 'video-detail' && params?.video) {
       setSelectedVideo(params.video);
-    } else if (view === 'shorts') {
-      const shortsList = videos.filter(v => v.isShort);
-      if (params?.index !== undefined) {
-        setActiveShortIdx(params.index);
-      } else {
-        setActiveShortIdx(0);
+      setIsTheatreMode(false);
+      
+      // Save to watch history system playlist
+      setPlaylists(prev => prev.map(pl => {
+        if (pl.id === 'pl_history') {
+          const withoutVideo = pl.videoIds.filter(id => id !== params.video.id);
+          return { ...pl, videoIds: [params.video.id, ...withoutVideo] };
+        }
+        return pl;
+      }));
+    } else {
+      setIsTheatreMode(false);
+      if (view === 'shorts') {
+        const shortsList = videos.filter(v => v.isShort);
+        const idx = params?.index !== undefined ? params.index : 0;
+        setActiveShortIdx(idx);
+        
+        // Save current short video to watch history
+        if (shortsList[idx]) {
+          const shortVid = shortsList[idx];
+          setPlaylists(prev => prev.map(pl => {
+            if (pl.id === 'pl_history') {
+              const withoutVideo = pl.videoIds.filter(id => id !== shortVid.id);
+              return { ...pl, videoIds: [shortVid.id, ...withoutVideo] };
+            }
+            return pl;
+          }));
+        }
       }
     }
     // scroll main panel to top
@@ -635,7 +820,7 @@ export default function App() {
   const activeLongPlayVideos = videos.filter(v => !v.isShort);
   const activeShortsVideos = videos.filter(v => v.isShort);
 
-  const searchedLongVideos = activeLongPlayVideos.filter(v => {
+  const searchedVideos = (homePlaybackMode === 'long' ? activeLongPlayVideos : activeShortsVideos).filter(v => {
     const matchSearch = searchQuery 
       ? v.title.toLowerCase().includes(searchQuery.toLowerCase()) || v.description.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
@@ -647,13 +832,24 @@ export default function App() {
 
   // Category tags (Matching screenshot exactly)
   const categoryChips = [
-    'All', 'Podcasts', 'Music', 'Mixes', 'Live', 'Testimonies', 'Enduro', 'Kickboxing', 
+    'All', 'Pages', 'Space savers', 'Podcasts', 'Music', 'Mixes', 'Live', 'Testimonies', 'Enduro', 'Kickboxing', 
     'Wealth', 'Angels', 'Harps', 'Righteousness', 'Good', 'Intercessions', 'Mercy', 
     'Psychology', 'Consciousness', 'Recently uploaded', 'Watched', 'New to you'
   ];
 
   // Ad Placement Fetcher
   const activeAdCampaign = campaigns.find(c => c.status === 'active') || null;
+
+  if (!currentUser) {
+    return (
+      <AuthView 
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          localStorage.setItem('ppl_user', JSON.stringify(user));
+        }} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans select-none antialiased overflow-hidden" id="pushplay-root">
@@ -669,7 +865,51 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         onOpenProfile={() => handleNavigate('profile-settings')}
         currentUser={currentUser}
+        onToggleMobileMenu={handleToggleSidebar}
       />
+
+      {/* Mobile Drawer (Overlay and Menu Panel) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden animate-in fade-in duration-200" id="mobile-nav-drawer">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm" 
+            onClick={() => setMobileMenuOpen(false)}
+            id="mobile-nav-backdrop"
+          />
+          {/* Drawer Panel */}
+          <div className="relative flex flex-col w-72 max-w-xs h-full bg-[#0a0a0c] border-r border-zinc-900 p-4 space-y-4 overflow-y-auto animate-in slide-in-from-left duration-250 shadow-2xl" id="mobile-nav-panel">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-gold-500 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-black fill-current" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" strokeWidth={2} />
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-gold-400 font-mono tracking-wider uppercase">PushPlay Menu</span>
+              </div>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 rounded-lg bg-zinc-900/60 text-zinc-400 hover:text-white border border-zinc-800 cursor-pointer transition-all"
+                title="Close menu"
+                id="close-mobile-nav-btn"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <Navigation 
+              currentView={currentView} 
+              onNavigate={handleNavigate} 
+              subscribedCreators={subscribedCreators} 
+              onClose={() => setMobileMenuOpen(false)}
+              isMobile={true}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Main Structural Layout (Sidebar + Center Content Shelf) */}
       <div className="flex flex-1 overflow-hidden">
@@ -677,6 +917,7 @@ export default function App() {
           currentView={currentView} 
           onNavigate={handleNavigate} 
           subscribedCreators={subscribedCreators} 
+          isCollapsed={sidebarCollapsed}
         />
 
         {/* Central Scrolling Feed */}
@@ -686,6 +927,37 @@ export default function App() {
           {currentView === 'home' && (
             <div className="p-4 md:p-6 space-y-6 animate-in fade-in duration-200" id="home-stream-view">
               
+              {/* Playback Mode Selector */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-900 pb-4">
+                <div>
+                  <h1 className="text-sm font-bold text-zinc-100 font-mono tracking-widest uppercase flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse"></span>
+                    <span>PushPlay Live Feed</span>
+                  </h1>
+                  <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Toggle between Extended Cinema streams and vertical Short Clips.</p>
+                </div>
+                <div className="flex bg-[#050507] p-1 rounded-xl border border-zinc-900 self-start sm:self-center">
+                  <button
+                    onClick={() => {
+                      setHomePlaybackMode('long');
+                      setActiveCategory('All');
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${homePlaybackMode === 'long' ? 'bg-gold-500 text-black shadow' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    Cinema (Long Play)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setHomePlaybackMode('short');
+                      setActiveCategory('All');
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${homePlaybackMode === 'short' ? 'bg-gold-500 text-black shadow' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    Clips (Short Play)
+                  </button>
+                </div>
+              </div>
+
               {/* Category tag chips bar */}
               <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-zinc-900/60" id="category-chips-bar">
                 {categoryChips.map((chip) => (
@@ -707,11 +979,11 @@ export default function App() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xs font-semibold text-zinc-400 font-mono tracking-widest uppercase mb-4 flex items-center gap-1.5">
-                    <span>Celestial & Atmospheric Streams</span>
+                    <span>{homePlaybackMode === 'long' ? 'Extended Cinema Streams' : 'Vertical Short Streams'}</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span>
                   </h2>
                   
-                  {searchedLongVideos.length === 0 ? (
+                  {searchedVideos.length === 0 ? (
                     <div className="text-center py-12 bg-zinc-900/10 rounded-2xl border border-zinc-900 p-6">
                       <AlertCircle className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
                       <p className="text-sm font-semibold text-zinc-400">No active streams match your query</p>
@@ -723,15 +995,22 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4" id="home-videos-grid">
-                      {searchedLongVideos.map((video) => (
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 ${homePlaybackMode === 'short' ? 'md:grid-cols-4 xl:grid-cols-5' : 'md:grid-cols-3 xl:grid-cols-4'} gap-4`} id="home-videos-grid">
+                      {searchedVideos.map((video) => (
                         <div
                           key={video.id}
-                          onClick={() => handleNavigate('video-detail', { video })}
+                          onClick={() => {
+                            if (video.isShort) {
+                              const idx = videos.filter(v => v.isShort).findIndex(v => v.id === video.id);
+                              handleNavigate('shorts', { index: idx !== -1 ? idx : 0 });
+                            } else {
+                              handleNavigate('video-detail', { video });
+                            }
+                          }}
                           className="bg-[#0c0c0f] border border-zinc-900/80 hover:border-gold-500/30 rounded-2xl overflow-hidden group/card cursor-pointer flex flex-col justify-between transition-all duration-300 shadow-md hover:shadow-lg hover:shadow-gold-500/5 hover:-translate-y-0.5"
                         >
                           {/* Card Thumbnail */}
-                          <div className="aspect-video bg-[#050507] overflow-hidden relative">
+                          <div className={`${video.isShort ? 'aspect-[9/16]' : 'aspect-video'} bg-[#050507] overflow-hidden relative`}>
                             <img 
                               src={video.thumbnail} 
                               alt="" 
@@ -810,58 +1089,153 @@ export default function App() {
 
           {/* PLAY VIDEO STREAM PAGE */}
           {currentView === 'video-detail' && selectedVideo && (
-            <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200" id="video-detail-workspace">
-              {/* Left Column: Player & Comments */}
-              <div className="lg:col-span-2 space-y-6">
-                <VideoPlayer
-                  video={selectedVideo}
-                  playlists={playlists}
-                  onAddToPlaylist={handleAddToPlaylist}
-                  onCreatePlaylist={handleCreatePlaylist}
-                  activeAd={activeAdCampaign}
-                  onAdClicked={handleAdClicked}
-                  onAdClosed={handleAdClosed}
-                  onBuyProduct={handleBuyProduct}
-                  wallet={wallet}
-                  onLike={handleLikeVideo}
-                  onDislike={handleDislikeVideo}
-                  onSubscribe={handleSubscribe}
-                />
-                
-                {/* Comments Thread */}
-                <CommentsSection
-                  comments={comments.filter(c => c.videoId === selectedVideo.id)}
-                  onAddComment={handleAddComment}
-                  onAddReply={handleAddReply}
-                  onLikeComment={handleLikeComment}
-                  onDislikeComment={handleDislikeComment}
-                  onHeartComment={handleHeartComment}
-                  onLikeReply={handleLikeReply}
-                  currentUser={currentUser}
-                  creatorId={selectedVideo.creator.id}
-                />
+            <div className="p-4 md:p-6 space-y-6 animate-in fade-in duration-200 text-left" id="video-detail-workspace">
+              {/* Workspace Navigation & Share Action Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-zinc-900/40" id="video-detail-header-actions">
+                <button
+                  onClick={() => handleNavigate('home')}
+                  className="w-fit flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-950 border border-zinc-900 text-zinc-400 hover:text-zinc-200 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  ← Back to Channels
+                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => setShowQrModalForVideo(selectedVideo)}
+                    className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-gold-500/40 text-zinc-300 hover:text-white active:scale-95 text-xs font-semibold cursor-pointer transition-all duration-300 shadow-md hover:shadow-gold-500/5"
+                    id="show-video-qr-button"
+                    title="Generate QR Code for mobile viewing"
+                  >
+                    <QrCode className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110 text-gold-400 group-hover:text-gold-300" />
+                    <span>Mobile QR</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowReportModal(selectedVideo)}
+                    className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-950/25 hover:bg-red-900/30 border border-red-900/30 hover:border-red-500/40 text-red-400 hover:text-red-300 active:scale-95 text-xs font-semibold cursor-pointer transition-all duration-300 shadow-md hover:shadow-red-500/5"
+                    id="report-video-button"
+                    title="Flag this stream for review"
+                  >
+                    <Flag className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110 text-red-400 group-hover:text-red-300" />
+                    <span>Report</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/watch?v=${selectedVideo.id}`;
+                      navigator.clipboard.writeText(link).then(() => {
+                        setToastMessage('Link Copied! Stream link copied to your clipboard.');
+                        setTimeout(() => setToastMessage(null), 3000);
+                      });
+                    }}
+                    className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-gold-500/40 text-zinc-300 hover:text-white active:scale-95 text-xs font-semibold cursor-pointer transition-all duration-300 shadow-md hover:shadow-gold-500/5"
+                    id="copy-video-link-button"
+                    title="Copy link to clipboard"
+                  >
+                    <Copy className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110 text-gold-400 group-hover:text-gold-300" />
+                    <span>Copy Link</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/watch?v=${selectedVideo.id}`;
+                      navigator.clipboard.writeText(link).then(() => {
+                        setToastMessage('Link Copied! Stream link copied to your clipboard.');
+                        setTimeout(() => setToastMessage(null), 3000);
+                      });
+                    }}
+                    className="group flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-amber-600 hover:from-gold-400 hover:to-amber-500 active:scale-95 text-black text-xs font-black uppercase tracking-wider cursor-pointer transition-all shadow-xl shadow-gold-500/15 hover-pulse-gold"
+                    id="share-video-button"
+                    title="Copy link to clipboard"
+                  >
+                    <Share2 className="w-4 h-4 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                    <span>Share Live Stream</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Right Column: Up Next recommendation stream list */}
-              <div className="space-y-4 text-left">
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest font-mono border-b border-zinc-900/60 pb-2">Up Next</h3>
-                <div className="space-y-3">
-                  {activeLongPlayVideos
-                    .filter(v => v.id !== selectedVideo.id)
-                    .map((video) => (
-                      <div
-                        key={video.id}
-                        onClick={() => handleNavigate('video-detail', { video })}
-                        className="flex gap-3 bg-[#0f0f12]/30 border border-zinc-900/40 hover:border-gold-500/15 hover:bg-[#0f0f12]/85 rounded-xl p-2 cursor-pointer transition-all duration-200 group"
-                      >
-                        <img src={video.thumbnail} alt="" className="w-24 h-14 object-cover rounded-lg border border-zinc-900/60 flex-shrink-0" />
-                        <div className="overflow-hidden space-y-1">
-                          <h4 className="text-[11px] font-bold text-zinc-200 line-clamp-2 leading-tight group-hover:text-gold-400 transition-colors">{video.title}</h4>
-                          <p className="text-[10px] text-zinc-400 truncate">{video.creator.name}</p>
-                          <span className="text-[9px] font-mono text-zinc-500 block">{(video.views).toLocaleString()} views</span>
+              {/* Theatre Mode full width Player */}
+              {isTheatreMode && (
+                <div className="w-full">
+                  <VideoPlayer
+                    video={selectedVideo}
+                    playlists={playlists}
+                    onAddToPlaylist={handleAddToPlaylist}
+                    onCreatePlaylist={handleCreatePlaylist}
+                    activeAd={activeAdCampaign}
+                    onAdClicked={handleAdClicked}
+                    onAdClosed={handleAdClosed}
+                    onBuyProduct={handleBuyProduct}
+                    wallet={wallet}
+                    onLike={handleLikeVideo}
+                    onDislike={handleDislikeVideo}
+                    onSubscribe={handleSubscribe}
+                    isTheatreMode={isTheatreMode}
+                    onToggleTheatreMode={() => setIsTheatreMode(!isTheatreMode)}
+                    onUpdateVideoDescription={handleUpdateVideoDescription}
+                  />
+                </div>
+              )}
+
+              <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-300 ${isTheatreMode ? 'opacity-30 hover:opacity-100' : ''}`}>
+                {/* Left Column: Player & Comments */}
+                <div className="lg:col-span-2 space-y-6">
+                  {!isTheatreMode && (
+                    <VideoPlayer
+                      video={selectedVideo}
+                      playlists={playlists}
+                      onAddToPlaylist={handleAddToPlaylist}
+                      onCreatePlaylist={handleCreatePlaylist}
+                      activeAd={activeAdCampaign}
+                      onAdClicked={handleAdClicked}
+                      onAdClosed={handleAdClosed}
+                      onBuyProduct={handleBuyProduct}
+                      wallet={wallet}
+                      onLike={handleLikeVideo}
+                      onDislike={handleDislikeVideo}
+                      onSubscribe={handleSubscribe}
+                      isTheatreMode={isTheatreMode}
+                      onToggleTheatreMode={() => setIsTheatreMode(!isTheatreMode)}
+                      onUpdateVideoDescription={handleUpdateVideoDescription}
+                    />
+                  )}
+                  
+                  {/* Comments Thread */}
+                  <CommentsSection
+                    comments={comments.filter(c => c.videoId === selectedVideo.id)}
+                    onAddComment={handleAddComment}
+                    onAddReply={handleAddReply}
+                    onLikeComment={handleLikeComment}
+                    onDislikeComment={handleDislikeComment}
+                    onHeartComment={handleHeartComment}
+                    onLikeReply={handleLikeReply}
+                    onEditComment={handleEditComment}
+                    onDeleteComment={handleDeleteComment}
+                    currentUser={currentUser}
+                    creatorId={selectedVideo.creator.id}
+                  />
+                </div>
+
+                {/* Right Column: Up Next recommendation stream list */}
+                <div className="space-y-4 text-left">
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest font-mono border-b border-zinc-900/60 pb-2">Up Next</h3>
+                  <div className="space-y-3">
+                    {activeLongPlayVideos
+                      .filter(v => v.id !== selectedVideo.id)
+                      .map((video) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleNavigate('video-detail', { video })}
+                          className="flex gap-3 bg-[#0f0f12]/30 border border-zinc-900/40 hover:border-gold-500/15 hover:bg-[#0f0f12]/85 rounded-xl p-2 cursor-pointer transition-all duration-200 group"
+                        >
+                          <img src={video.thumbnail} alt="" className="w-24 h-14 object-cover rounded-lg border border-zinc-900/60 flex-shrink-0" />
+                          <div className="overflow-hidden space-y-1">
+                            <h4 className="text-[11px] font-bold text-zinc-200 line-clamp-2 leading-tight group-hover:text-gold-400 transition-colors">{video.title}</h4>
+                            <p className="text-[10px] text-zinc-400 truncate">{video.creator.name}</p>
+                            <span className="text-[9px] font-mono text-zinc-500 block">{(video.views).toLocaleString()} views</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -873,7 +1247,19 @@ export default function App() {
               <ShortsPlayer
                 shorts={activeShortsVideos}
                 activeIdx={activeShortShorts()}
-                onIndexChange={setActiveShortIdx}
+                onIndexChange={(idx) => {
+                  setActiveShortIdx(idx);
+                  if (activeShortsVideos[idx]) {
+                    const shortVid = activeShortsVideos[idx];
+                    setPlaylists(prev => prev.map(pl => {
+                      if (pl.id === 'pl_history') {
+                        const withoutVideo = pl.videoIds.filter(id => id !== shortVid.id);
+                        return { ...pl, videoIds: [shortVid.id, ...withoutVideo] };
+                      }
+                      return pl;
+                    }));
+                  }
+                }}
                 comments={comments}
                 onAddComment={handleAddShortComment}
                 onLike={handleLikeVideo}
@@ -883,6 +1269,12 @@ export default function App() {
                   navigator.clipboard.writeText(`${window.location.origin}/shorts?v=${id}`);
                   alert('Short stream copied to clipboard!');
                 }}
+                onAddReply={handleAddReply}
+                onLikeComment={handleLikeComment}
+                onDislikeComment={handleDislikeComment}
+                onHeartComment={handleHeartComment}
+                onLikeReply={handleLikeReply}
+                currentUser={currentUser}
               />
             </div>
           )}
@@ -890,41 +1282,188 @@ export default function App() {
           {/* PLAYLISTS VIEW */}
           {currentView === 'playlists' && (
             <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6 text-left animate-in fade-in duration-200" id="user-playlists-view">
-              <div className="border-b border-zinc-900 pb-3">
-                <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
-                  <List className="w-5.5 h-5.5 text-red-500" /> My Custom Playlists
-                </h1>
-                <p className="text-xs text-zinc-500">Access saved video packages and stream them sequentially.</p>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+                <div>
+                  <h1 className="text-sm font-bold text-zinc-100 font-mono tracking-widest uppercase flex items-center gap-2">
+                    <List className="w-4 h-4 text-gold-500" /> 
+                    <span>Playlist Studio</span>
+                  </h1>
+                  <p className="text-xs text-zinc-500 mt-0.5">Create custom channels, manage Watch Later collections, and compile audio-visual logs.</p>
+                </div>
+
+                {/* Create Playlist Input */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget;
+                    const input = form.elements.namedItem('playlistName') as HTMLInputElement;
+                    if (input.value.trim()) {
+                      handleCreatePlaylist(input.value.trim());
+                      input.value = '';
+                    }
+                  }}
+                  className="flex items-center gap-2 bg-[#0c0c0f] border border-zinc-900 rounded-xl px-2.5 py-1.5 w-full md:max-w-xs"
+                >
+                  <input
+                    type="text"
+                    name="playlistName"
+                    placeholder="New playlist name..."
+                    required
+                    className="bg-transparent text-xs text-zinc-250 outline-none w-full"
+                  />
+                  <button
+                    type="submit"
+                    className="p-1 px-2.5 bg-gold-500 hover:bg-gold-600 text-black rounded-lg text-[10px] font-bold uppercase cursor-pointer"
+                  >
+                    Create
+                  </button>
+                </form>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {playlists.map((playlist) => (
-                  <div key={playlist.id} className="bg-zinc-900/20 border border-zinc-900 rounded-2xl p-4.5 space-y-3 relative group">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] bg-red-600/10 text-red-500 font-mono font-bold px-2 py-0.5 rounded border border-red-500/10 uppercase">
-                        {playlist.isSystem ? 'System Playlist' : 'User Playlist'}
-                      </span>
-                      <span className="text-xs font-mono font-bold text-zinc-400">{playlist.videoIds.length} Videos</span>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Playlist Deck */}
+                <div className="md:col-span-1 space-y-3">
+                  <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Select Playlist</h3>
+                  <div className="space-y-2">
+                    {playlists.map((playlist) => {
+                      const isActive = selectedPlaylistId === playlist.id;
+                      return (
+                        <div
+                          key={playlist.id}
+                          onClick={() => setSelectedPlaylistId(playlist.id)}
+                          className={`p-3.5 rounded-xl border transition-all cursor-pointer text-left space-y-2.5 relative group ${
+                            isActive
+                              ? 'bg-gold-500/10 border-gold-500/30 shadow shadow-gold-500/5'
+                              : 'bg-zinc-950 border-zinc-900/80 hover:border-zinc-800'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${
+                              playlist.isSystem
+                                ? 'bg-red-950/20 text-red-400 border-red-900/10'
+                                : 'bg-gold-950/20 text-gold-400 border-gold-900/10'
+                            }`}>
+                              {playlist.isSystem ? 'System' : 'Custom'}
+                            </span>
+                            <span className="text-[10px] font-mono text-zinc-500">{playlist.videoIds.length} items</span>
+                          </div>
 
-                    <h3 className="text-sm font-bold text-zinc-200">{playlist.name}</h3>
+                          <div>
+                            <h4 className="text-xs font-bold text-zinc-200 group-hover:text-gold-400 transition-colors">{playlist.name}</h4>
+                          </div>
 
-                    {/* Quick play preview */}
-                    {playlist.videoIds.length > 0 ? (
-                      <button
-                        onClick={() => {
-                          const firstVid = videos.find(v => v.id === playlist.videoIds[0]);
-                          if (firstVid) handleNavigate('video-detail', { video: firstVid });
-                        }}
-                        className="w-full mt-3 py-2 bg-zinc-800 hover:bg-zinc-750 text-zinc-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current text-red-500" /> Play Sequence
-                      </button>
-                    ) : (
-                      <p className="text-[10px] text-zinc-500 font-mono mt-3">This playlist contains no saved video elements.</p>
-                    )}
+                          <div className="flex items-center justify-between pt-1 border-t border-zinc-900/60 text-[10px]">
+                            <span className="text-zinc-500 font-mono">ID: {playlist.id.replace('pl_', '')}</span>
+                            {!playlist.isSystem && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Are you sure you want to delete "${playlist.name}"?`)) {
+                                    handleDeletePlaylist(playlist.id);
+                                  }
+                                }}
+                                className="text-red-500 hover:text-red-400 font-bold font-mono text-[9px] uppercase tracking-wider cursor-pointer px-1 py-0.5 hover:bg-red-500/5 rounded"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                </div>
+
+                {/* Playlist Video Editor Shelf */}
+                <div className="md:col-span-2 bg-[#0c0c0f]/80 border border-zinc-900/80 p-5 rounded-3xl min-h-[300px] flex flex-col justify-between">
+                  {selectedPlaylistId ? (
+                    (() => {
+                      const playlist = playlists.find(p => p.id === selectedPlaylistId);
+                      if (!playlist) return <p className="text-xs text-zinc-500 font-mono">No active playlist selected.</p>;
+                      
+                      const savedVideos = playlist.videoIds
+                        .map(id => videos.find(v => v.id === id))
+                        .filter((v): v is Video => !!v);
+
+                      return (
+                        <div className="space-y-4 w-full text-left">
+                          <div className="flex justify-between items-center border-b border-zinc-900 pb-2.5">
+                            <div>
+                              <h3 className="text-xs font-bold text-zinc-300 font-mono uppercase tracking-widest">{playlist.name} Streams</h3>
+                              <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Manage chronological entries inside this container.</p>
+                            </div>
+                            {savedVideos.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  handleNavigate(savedVideos[0].isShort ? 'shorts' : 'video-detail', { video: savedVideos[0] });
+                                }}
+                                className="px-3 py-1 bg-gold-500 hover:bg-gold-600 text-black rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer shadow shadow-gold-500/10"
+                              >
+                                <Play className="w-3 h-3 fill-current" /> Stream All
+                              </button>
+                            )}
+                          </div>
+
+                          {savedVideos.length === 0 ? (
+                            <div className="text-center py-12">
+                              <AlertCircle className="w-7 h-7 text-zinc-600 mx-auto mb-1.5" />
+                              <p className="text-xs text-zinc-400 font-mono">No stream entries found inside this playlist.</p>
+                              <p className="text-[10px] text-zinc-600 mt-1">Add streams directly from any Cinema player screen.</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                              {savedVideos.map((vid, idx) => (
+                                <div
+                                  key={`${vid.id}-${idx}`}
+                                  className="flex items-center justify-between p-2 bg-zinc-950/60 rounded-xl border border-zinc-900/80 group/vid"
+                                >
+                                  <div
+                                    onClick={() => handleNavigate(vid.isShort ? 'shorts' : 'video-detail', { video: vid })}
+                                    className="flex items-center gap-3 cursor-pointer overflow-hidden flex-1"
+                                  >
+                                    <span className="text-[10px] text-zinc-500 font-mono w-4 text-center">{idx + 1}</span>
+                                    <div className="w-14 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 relative">
+                                      <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <h4 className="text-xs font-semibold text-zinc-250 truncate group-hover/vid:text-gold-400 transition-colors">{vid.title}</h4>
+                                      <p className="text-[9px] text-zinc-500 font-mono truncate">{vid.creator.name} • {vid.duration}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => handleNavigate(vid.isShort ? 'shorts' : 'video-detail', { video: vid })}
+                                      className="p-1.5 hover:bg-zinc-900 text-zinc-400 hover:text-gold-400 rounded-lg cursor-pointer transition-colors"
+                                      title="Stream video"
+                                    >
+                                      <Play className="w-3.5 h-3.5 fill-current" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleAddToPlaylist(playlist.id, vid.id);
+                                      }}
+                                      className="p-1.5 hover:bg-zinc-900 text-zinc-500 hover:text-red-400 rounded-lg cursor-pointer transition-colors"
+                                      title="Remove from playlist"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-center py-12 my-auto">
+                      <List className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-zinc-400">No playlist selected</p>
+                      <p className="text-[10px] text-zinc-500 mt-1">Select any system or custom container from the left list to view and manage its contents.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1054,6 +1593,16 @@ export default function App() {
               onDeleteVideo={handleDeleteVideo}
               onAddProduct={handlePublishStoreProduct}
               onWithdrawEarnings={handleWithdrawEarnings}
+              campaigns={campaigns}
+              onUpdateCampaign={(updated) => {
+                setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+              }}
+              comments={comments}
+              onDeleteComment={handleDeleteComment}
+              reports={reports}
+              onUpdateReport={(updated) => {
+                setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
+              }}
             />
           )}
 
@@ -1064,6 +1613,102 @@ export default function App() {
               onUpdateProfile={handleUpdateProfile}
               subscribedCreators={subscribedCreators}
               onUnsubscribe={handleUnsubscribe}
+              onLogout={handleLogout}
+            />
+          )}
+
+          {/* WATCH HISTORY SYSTEM PLAYLIST VIEW */}
+          {currentView === 'history' && (
+            <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6 text-left animate-in fade-in duration-200" id="watch-history-view">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-3">
+                <div>
+                  <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+                    <History className="w-5.5 h-5.5 text-red-500" /> Watch History Stream Grid
+                  </h1>
+                  <p className="text-xs text-zinc-500">Every broadcast and short stream you have recently tuned into.</p>
+                </div>
+                {getPlaylistVideos('pl_history').length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear your entire watch history?')) {
+                        setPlaylists(prev => prev.map(pl => {
+                          if (pl.id === 'pl_history') {
+                            return { ...pl, videoIds: [] };
+                          }
+                          return pl;
+                        }));
+                      }
+                    }}
+                    className="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 rounded-lg text-xs font-bold uppercase cursor-pointer border border-zinc-850 transition-all"
+                  >
+                    Clear History
+                  </button>
+                )}
+              </div>
+
+              {getPlaylistVideos('pl_history').length === 0 ? (
+                <div className="text-center py-12 bg-zinc-900/10 rounded-2xl border border-zinc-900 p-6">
+                  <AlertCircle className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-zinc-400">Your Watch History index is empty</p>
+                  <p className="text-xs text-zinc-500 mt-1">Start playing long broadcasts or short streams to fill your logs.</p>
+                  <button onClick={() => setCurrentView('home')} className="mt-4 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs rounded-full font-bold cursor-pointer transition-colors">Discover Streams</button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {getPlaylistVideos('pl_history').map(vid => (
+                    <div
+                      key={vid.id}
+                      className="bg-zinc-950 border border-zinc-900 rounded-xl p-2 flex gap-3 cursor-pointer hover:border-zinc-800 transition-all relative group"
+                    >
+                      <div className="w-20 h-12 rounded overflow-hidden flex-shrink-0 relative" onClick={() => handleNavigate('video-detail', { video: vid })}>
+                        <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" />
+                        <span className="absolute bottom-0.5 right-0.5 bg-black/80 font-mono text-[8px] text-zinc-300 px-1 rounded">{vid.duration}</span>
+                      </div>
+                      <div className="min-w-0 flex-grow" onClick={() => handleNavigate('video-detail', { video: vid })}>
+                        <h4 className="text-xs font-bold text-zinc-200 truncate group-hover:text-red-400 transition-colors">{vid.title}</h4>
+                        <p className="text-[10px] text-zinc-500 truncate">{vid.creator.name}</p>
+                        <span className="text-[9px] font-mono text-zinc-500 mt-1 block">{(vid.views).toLocaleString()} views</span>
+                      </div>
+                      
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPlaylists(prev => prev.map(pl => {
+                            if (pl.id === 'pl_history') {
+                              return { ...pl, videoIds: pl.videoIds.filter(id => id !== vid.id) };
+                            }
+                            return pl;
+                          }));
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-zinc-900 border border-zinc-850 hover:bg-red-950/20 text-zinc-500 hover:text-red-400 rounded-lg cursor-pointer transition-colors"
+                        title="Remove from history"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CREATOR STUDIO WORKSPACE (Screenshot matching) */}
+          {currentView === 'creator-studio' && (
+            <CreatorStudio
+              videos={videos}
+              onDeleteVideo={handleDeleteVideo}
+              onUpdateVideo={(updated) => {
+                setVideos(prev => prev.map(v => v.id === updated.id ? updated : v));
+                if (selectedVideo?.id === updated.id) {
+                  setSelectedVideo(updated);
+                }
+              }}
+              currentUser={currentUser}
+              onUpdateProfile={(updatedUser) => {
+                setCurrentUser(updatedUser);
+                localStorage.setItem('ppl_user', JSON.stringify(updatedUser));
+              }}
             />
           )}
 
@@ -1108,8 +1753,83 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* MUSIC CHANNEL & HUB PLATFORM */}
+          {currentView === 'music' && (
+            <MusicView />
+          )}
         </main>
       </div>
+
+      {/* Floating Global QR Code Scanner Modal */}
+      {showQrModalForVideo && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          id="qr-modal-overlay"
+        >
+          <div className="bg-[#0b0b0f] border-2 border-gold-500/40 w-full max-w-sm rounded-3xl p-6 text-center space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setShowQrModalForVideo(null)} 
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-zinc-950/60 text-zinc-400 hover:text-white border border-zinc-900 cursor-pointer transition-all"
+              title="Close modal"
+              id="close-qr-modal-btn"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="space-y-1.5">
+              <span className="inline-block px-2 py-0.5 rounded-full bg-gold-500/10 text-gold-400 text-[9px] font-mono font-black uppercase tracking-widest border border-gold-500/20">
+                Mobile Sync Link
+              </span>
+              <h3 className="text-sm font-bold text-zinc-100 font-sans tracking-tight line-clamp-1">
+                {showQrModalForVideo.title}
+              </h3>
+            </div>
+
+            <div className="relative mx-auto w-48 h-48 bg-zinc-950 p-2.5 rounded-2xl border border-zinc-900 shadow-inner flex items-center justify-center group/qr">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=d4af37&bgcolor=09090b&data=${encodeURIComponent(`${window.location.origin}/watch?v=${showQrModalForVideo.id}`)}`} 
+                alt="QR Code" 
+                className="w-full h-full rounded-lg transition-transform duration-300 group-hover/qr:scale-102"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gold-500/5 opacity-0 group-hover/qr:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] text-zinc-400 font-sans leading-relaxed px-2">
+                Scan this QR code with your phone's camera or a QR reader application to instantly launch this stream on your mobile device.
+              </p>
+              <div className="flex items-center justify-center gap-1.5 text-[9px] font-mono font-bold text-gold-400 bg-gold-500/5 py-1 px-3.5 rounded-full border border-gold-500/15 w-fit mx-auto max-w-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="truncate">watch?v={showQrModalForVideo.id}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-zinc-900 flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/watch?v=${showQrModalForVideo.id}`).then(() => {
+                    setToastMessage('Link Copied to Clipboard!');
+                    setTimeout(() => setToastMessage(null), 3000);
+                  });
+                }}
+                className="flex-1 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-zinc-850 hover:border-gold-500/20 text-zinc-300 hover:text-white font-bold text-xs transition-all cursor-pointer"
+              >
+                Copy URL
+              </button>
+              <button
+                onClick={() => setShowQrModalForVideo(null)}
+                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-gold-500 to-amber-600 hover:from-gold-400 hover:to-amber-500 text-black font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Global Upload Dialog Modal */}
       <UploadModal
@@ -1119,6 +1839,89 @@ export default function App() {
         creatorDetails={creatorDetails}
         type={uploadType}
       />
+
+      {/* REPORT VIDEO MODAL */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-[#000]/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-left" id="report-modal">
+            <div className="flex justify-between items-center border-b border-zinc-900 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-red-650/10 text-red-500 rounded-lg border border-red-500/20">
+                  <Flag className="w-4 h-4" />
+                </span>
+                <h3 className="text-sm font-bold text-zinc-150">Flag Content for Review</h3>
+              </div>
+              <button 
+                onClick={handleCloseReportModal}
+                className="p-1 text-zinc-550 hover:text-zinc-350 rounded transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#0c0c0f] border border-zinc-900 p-3 rounded-xl">
+              <span className="text-[9px] font-mono text-zinc-500 uppercase block">FLAGGING STREAM</span>
+              <p className="text-xs font-bold text-zinc-200 truncate">{showReportModal.title}</p>
+              <p className="text-[10px] text-zinc-500">By: {showReportModal.creator.name}</p>
+            </div>
+
+            <form onSubmit={handleSubmitReport} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold">Select Violation Category</label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-900 rounded-xl text-xs px-3 py-2.5 text-zinc-200 outline-none focus:border-red-500/30 cursor-pointer"
+                >
+                  <option value="Inappropriate Content">🔞 Inappropriate Content</option>
+                  <option value="Hate Speech / Harassment">🗣️ Hate Speech / Harassment</option>
+                  <option value="Violates Copyright">⚖️ Copyright Violation</option>
+                  <option value="Spam / Misleading">⚠️ Spam or Misleading</option>
+                  <option value="Violence / Dangerous">🚨 Violence or Dangerous Behavior</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold">Additional Details (Optional)</label>
+                <textarea
+                  placeholder="Please specify timestamps or other helpful details..."
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-900 rounded-xl text-xs px-3 py-2 text-zinc-200 outline-none h-24 resize-none focus:border-red-500/30"
+                />
+              </div>
+
+              <p className="text-[10px] text-zinc-500 leading-normal">
+                PushPlay moderators investigate flagged streams 24/7. Filing false or malicious reports may result in account restriction.
+              </p>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseReportModal}
+                  className="flex-1 py-2.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 border border-zinc-850 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-red-600/10"
+                >
+                  Submit Flag
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Global Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#0d0d11] border border-gold-500/30 text-gold-400 font-mono font-bold text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 

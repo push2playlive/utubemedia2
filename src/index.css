@@ -2,9 +2,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Cinzel", "Playfair Display", Georgia, serif;
-  --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
-  --font-mono: "Fira Code", monospace;
+  --font-serif: "Arial", sans-serif;
+  --font-sans: "Arial", sans-serif;
+  --font-mono: "Arial", sans-serif;
   
   --color-gold-50: #fbf7ee;
   --color-gold-100: #f5ebce;
@@ -40,4 +40,22 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #c5a059;
 }
+
+@keyframes gold-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(197, 160, 89, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(197, 160, 89, 0);
+  }
+}
+
+.hover-pulse-gold {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-pulse-gold:hover {
+  animation: gold-pulse 1.6s infinite ease-in-out;
+}
+
 

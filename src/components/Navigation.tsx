@@ -1,35 +1,46 @@
-import { Home, Flame, Users, Clock, ThumbsUp, Wallet, Store, BarChart3, Settings, ShieldAlert, Library, BookOpen } from 'lucide-react';
+import { Home, Flame, Users, Clock, ThumbsUp, Wallet, Store, BarChart3, Settings, ShieldAlert, Library, BookOpen, Music, History } from 'lucide-react';
 import { Creator } from '../types';
 
 interface NavigationProps {
   currentView: string;
   onNavigate: (view: string, params?: any) => void;
   subscribedCreators: Creator[];
+  onClose?: () => void;
+  isMobile?: boolean;
+  isCollapsed?: boolean;
 }
 
-export default function Navigation({ currentView, onNavigate, subscribedCreators }: NavigationProps) {
+export default function Navigation({ currentView, onNavigate, subscribedCreators, onClose, isMobile, isCollapsed }: NavigationProps) {
   // Navigation categories
   const mainNav = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'shorts', label: 'Shorts', icon: Flame },
+    { id: 'music', label: 'Music', icon: Music },
   ];
 
   const personalNav = [
     { id: 'playlists', label: 'Playlists', icon: Library },
     { id: 'watch-later', label: 'Watch Later', icon: Clock },
     { id: 'liked', label: 'Liked videos', icon: ThumbsUp },
+    { id: 'history', label: 'Watch History', icon: History },
   ];
 
   const ecosystemNav = [
     { id: 'wallet', label: 'Wallet & Crypto', icon: Wallet },
     { id: 'store', label: 'Online Store', icon: Store },
     { id: 'advertising', label: 'Advertisers Lab', icon: BookOpen },
-    { id: 'admin', label: 'Admin Studio', icon: BarChart3 },
+    { id: 'creator-studio', label: 'Creator Studio', icon: BarChart3 },
     { id: 'lease-store', label: 'Lease a Store', icon: ShieldAlert },
   ];
 
+  const containerClasses = isMobile
+    ? "w-full text-zinc-300 space-y-5"
+    : `bg-[#0a0a0c] text-zinc-300 border-r border-zinc-900/80 h-[calc(100vh-57px)] overflow-y-auto hidden lg:block space-y-5 transition-all duration-300 ${
+        isCollapsed ? 'w-0 p-0 border-r-0 opacity-0 pointer-events-none' : 'w-64 p-3'
+      }`;
+
   return (
-    <aside className="w-64 bg-[#0a0a0c] text-zinc-300 border-r border-zinc-900/80 h-[calc(100vh-57px)] overflow-y-auto hidden lg:block p-3 space-y-5" id="app-navigation">
+    <aside className={containerClasses} id="app-navigation">
       {/* Main Stream */}
       <div className="space-y-1">
         {mainNav.map((item) => {
@@ -38,7 +49,10 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
           return (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              onClick={() => {
+                onNavigate(item.id);
+                onClose?.();
+              }}
               className={`w-full flex items-center gap-4 px-3 py-2 text-sm rounded-lg transition-all text-left font-medium cursor-pointer ${
                 isActive 
                   ? 'bg-zinc-900 text-gold-400 font-semibold border-l-2 border-gold-500 rounded-l-none pl-2.5' 
@@ -64,7 +78,10 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => {
+                  onNavigate(item.id);
+                  onClose?.();
+                }}
                 className={`w-full flex items-center gap-4 px-3 py-2 text-sm rounded-lg transition-all text-left font-medium cursor-pointer ${
                   isActive 
                     ? 'bg-zinc-900 text-gold-400 font-semibold border-l-2 border-gold-500 rounded-l-none pl-2.5' 
@@ -91,7 +108,10 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => {
+                  onNavigate(item.id);
+                  onClose?.();
+                }}
                 className={`w-full flex items-center gap-4 px-3 py-2 text-sm rounded-lg transition-all text-left font-medium cursor-pointer ${
                   isActive 
                     ? 'bg-zinc-900 text-gold-400 font-semibold border-l-2 border-gold-500 rounded-l-none pl-2.5' 
@@ -118,7 +138,10 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
           {subscribedCreators.map((creator) => (
             <button
               key={creator.id}
-              onClick={() => onNavigate('creator-profile', { creatorId: creator.id })}
+              onClick={() => {
+                onNavigate('creator-profile', { creatorId: creator.id });
+                onClose?.();
+              }}
               className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all cursor-pointer group text-left"
             >
               <div className="flex items-center gap-2.5 overflow-hidden">
