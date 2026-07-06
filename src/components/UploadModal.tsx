@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Upload, CheckCircle, Video as VideoIcon, Sparkles } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Upload, CheckCircle, Video as VideoIcon, Sparkles, FileVideo } from 'lucide-react';
 import { Video, Creator } from '../types';
 
 interface UploadModalProps {
@@ -20,8 +20,38 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
   const [adEnabled, setAdEnabled] = useState(true);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileName, setFileName] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const handleFileProcess = (file: File) => {
+    setFileName(file.name);
+    if (!title.trim()) {
+      // Remove file extension for default title suggestion
+      const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+      // Capitalize/prettify title nicely
+      const cleanTitle = nameWithoutExt
+        .replace(/[_-]/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+      setTitle(cleanTitle);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileProcess(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileProcess(e.dataTransfer.files[0]);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +72,7 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
 
     setTitle('');
     setDescription('');
+    setFileName('');
     setUploadSuccess(true);
     setTimeout(() => {
       setUploadSuccess(false);
@@ -73,20 +104,47 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
-        {/* Drag-and-Drop Area Simulation */}
+        {/* Drag-and-Drop Area */}
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setIsDragging(false); alert('Video file dropped successfully! Parsing metadata...'); }}
-          className={`border-2 border-dashed rounded-xl p-6 text-center space-y-2.5 transition-colors ${isDragging ? 'border-red-500 bg-red-500/5' : 'border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60'}`}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-6 text-center space-y-2.5 transition-all duration-350 cursor-pointer ${isDragging ? 'border-red-500 bg-red-500/5' : 'border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60 hover:border-zinc-600'}`}
         >
-          <div className="mx-auto w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400">
-            <Upload className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-zinc-300">Drag & drop video stream or select file</p>
-            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">MP4, WebM up to 4K resolution (Simulated parsing)</p>
-          </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="video/*"
+            className="hidden"
+          />
+          {fileName ? (
+            <div className="space-y-2">
+              <div className="mx-auto w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <FileVideo className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-200">File Selected Successfully!</p>
+                <p className="text-[11px] text-emerald-400 font-mono mt-0.5 max-w-[90%] mx-auto truncate" title={fileName}>
+                  {fileName}
+                </p>
+                <span className="inline-block mt-2 text-[9px] font-mono bg-zinc-800 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors">
+                  Click to choose a different video
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mx-auto w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400">
+                <Upload className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-300">Click to select or drag & drop video stream</p>
+                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">MP4, WebM up to 4K resolution (Local files supported)</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Form */}

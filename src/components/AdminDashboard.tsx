@@ -644,6 +644,36 @@ export default function AdminDashboard({
                             </td>
                             <td className="p-4 max-w-xs">
                               <p className="text-zinc-400 line-clamp-2 leading-relaxed">{rep.details || 'No additional comments provided.'}</p>
+                              {rep.internalNotes && (
+                                <div className="mt-2 bg-[#0c0c0f] p-2 rounded border border-zinc-900/80">
+                                  <span className="text-[9px] font-mono text-zinc-500 block mb-0.5 uppercase tracking-wider">📝 Internal Notes & Timestamps:</span>
+                                  <p className="text-[11px] font-mono text-zinc-300 whitespace-pre-wrap">{rep.internalNotes}</p>
+                                </div>
+                              )}
+                              {rep.evidence && (
+                                <div className="mt-2">
+                                  <span className="text-[9px] font-mono text-zinc-550 block mb-1 uppercase tracking-wider">📸 Camera Snapshot:</span>
+                                  <div className="relative w-20 h-14 rounded border border-zinc-800/80 overflow-hidden cursor-zoom-in hover:border-red-500/50 transition-all group">
+                                    <img
+                                      src={rep.evidence}
+                                      alt="Camera Evidence"
+                                      className="w-full h-full object-cover"
+                                      onClick={() => {
+                                        const w = window.open();
+                                        if (w) {
+                                          w.document.write(`<img src="${rep.evidence}" style="max-width:100%; max-height:100vh; display:block; margin:auto; background:#121214; padding:20px; box-sizing:border-box;" />`);
+                                          w.document.title = `Camera Evidence - ${rep.reporterName}`;
+                                          w.document.body.style.background = "#09090b";
+                                          w.document.body.style.margin = "0";
+                                        }
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[8px] text-white font-mono font-bold transition-opacity">
+                                      VIEW
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </td>
                             <td className="p-4 whitespace-nowrap font-mono text-[11px] text-zinc-500">
                               {rep.timestamp}

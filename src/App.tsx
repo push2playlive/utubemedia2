@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { jsPDF } from 'jspdf';
 import Header from './components/Header';
 import Navigation from './components/Navigation';
 import VideoPlayer from './components/VideoPlayer';
@@ -25,7 +26,7 @@ import {
   creators 
 } from './data';
 import { Video, Comment, AdCampaign, UserWallet, Playlist, StoreProduct, StoreLease, Creator, VideoReport } from './types';
-import { Compass, Flame, Clock, Heart, Play, Plus, Trash2, List, Grid, Sparkles, Filter, Store, AlertCircle, ShoppingBag, Share2, Check, Copy, QrCode, History, Flag } from 'lucide-react';
+import { Compass, Flame, Clock, Heart, Play, Plus, Trash2, List, Grid, Sparkles, Filter, Store, AlertCircle, ShoppingBag, Share2, Check, Copy, QrCode, History, Flag, Camera, RefreshCw, Download } from 'lucide-react';
 
 export default function App() {
   // --- Persistent State Hub via LocalStorage ---
@@ -158,6 +159,11 @@ export default function App() {
   const [showReportModal, setShowReportModal] = useState<Video | null>(null);
   const [reportReason, setReportReason] = useState('Inappropriate Content');
   const [reportDetails, setReportDetails] = useState('');
+  const [reportInternalNotes, setReportInternalNotes] = useState('');
+  const [reportEvidence, setReportEvidence] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const reportVideoStreamRef = useRef<MediaStream | null>(null);
 
   const handleToggleSidebar = () => {
     if (window.innerWidth < 1024) {
@@ -226,6 +232,14 @@ export default function App() {
     setShowReportModal(null);
     setReportReason('Inappropriate Content');
     setReportDetails('');
+    setReportInternalNotes('');
+    setReportEvidence(null);
+    if (reportVideoStreamRef.current) {
+      reportVideoStreamRef.current.getTracks().forEach(track => track.stop());
+      reportVideoStreamRef.current = null;
+    }
+    setIsCameraActive(false);
+    setCameraError(null);
   };
 
   const handleSubmitReport = (e: React.FormEvent) => {
@@ -240,7 +254,9 @@ export default function App() {
       reason: reportReason,
       details: reportDetails.trim(),
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      status: 'pending'
+      status: 'pending',
+      evidence: reportEvidence || undefined,
+      internalNotes: reportInternalNotes.trim() || undefined
     };
 
     const updatedReports = [newReport, ...reports];
@@ -250,6 +266,258 @@ export default function App() {
     setToastMessage('Report Submitted! Thank you for keeping the platform safe.');
     setTimeout(() => setToastMessage(null), 3500);
     handleCloseReportModal();
+  };
+
+  const handleStartCamera = async () => {
+    setCameraError(null);
+    setIsCameraActive(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 300 } });
+      reportVideoStreamRef.current = stream;
+      // Brief timeout to ensure DOM video element is rendered and bound
+      setTimeout(() => {
+        const videoEl = document.getElementById('report-camera-preview') as HTMLVideoElement | null;
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          videoEl.play().catch(err => console.error("Error playing video:", err));
+        }
+      }, 100);
+    } catch (err: any) {
+      console.error("Camera access error:", err);
+      setCameraError("Could not start camera. Please verify device permissions.");
+      setIsCameraActive(false);
+    }
+  };
+
+  const handleCaptureSnapshot = () => {
+    const videoEl = document.getElementById('report-camera-preview') as HTMLVideoElement | null;
+    if (videoEl) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth || 400;
+        canvas.height = videoEl.videoHeight || 300;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          const base64Img = canvas.toDataURL('image/jpeg', 0.85);
+          setReportEvidence(base64Img);
+        }
+      } catch (err) {
+        console.error("Failed to draw canvas:", err);
+      }
+    }
+    // Turn off camera
+    if (reportVideoStreamRef.current) {
+      reportVideoStreamRef.current.getTracks().forEach(t => t.stop());
+      reportVideoStreamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const handleDiscardSnapshot = () => {
+    setReportEvidence(null);
+    setCameraError(null);
+  };
+
+  const handleDownloadPdfReport = () => {
+    if (!showReportModal) return;
+
+    try {
+      const doc = new jsPDF();
+
+      // Set elegant styling parameters
+      const titleColor = [220, 38, 38]; // Red Accent
+      const darkColor = [30, 30, 36];
+      const grayColor = [100, 100, 110];
+
+      // Document Header Accent Bar
+      doc.setFillColor(titleColor[0], titleColor[1], titleColor[2]);
+      doc.rect(0, 0, 210, 15, 'F');
+
+      // Title
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.text('PUSHPLAY CONTENT INTEGRITY & COMPLIANCE', 15, 10);
+
+      // Report Status Header
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      doc.text('INCIDENT DISPATCH REPORT', 15, 30);
+
+      // Horizontal Divider
+      doc.setDrawColor(220, 220, 225);
+      doc.line(15, 33, 195, 33);
+
+      // Priority calculation
+      let priorityText = 'LOW';
+      if (reportReason === 'Violence / Dangerous' || reportReason === 'Hate Speech / Harassment') {
+        priorityText = 'HIGH';
+      } else if (reportReason === 'Inappropriate Content' || reportReason === 'Violates Copyright') {
+        priorityText = 'MEDIUM';
+      }
+
+      // Metadata section
+      doc.setFontSize(10);
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      
+      const col1_x = 15;
+      const col2_x = 110;
+      let curr_y = 42;
+
+      // Row 1
+      doc.text('Incident Category:', col1_x, curr_y);
+      doc.text('Incident Priority:', col2_x, curr_y);
+      doc.setFont('Helvetica', 'normal');
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      doc.text(reportReason, col1_x + 35, curr_y);
+      
+      // Highlight priority in red if high
+      if (priorityText === 'HIGH') {
+        doc.setTextColor(220, 38, 38);
+        doc.setFont('Helvetica', 'bold');
+      } else if (priorityText === 'MEDIUM') {
+        doc.setTextColor(217, 119, 6);
+        doc.setFont('Helvetica', 'bold');
+      } else {
+        doc.setTextColor(37, 99, 235);
+        doc.setFont('Helvetica', 'bold');
+      }
+      doc.text(priorityText, col2_x + 32, curr_y);
+
+      // Row 2
+      curr_y = 50;
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text('Target Content ID:', col1_x, curr_y);
+      doc.text('Target Creator:', col2_x, curr_y);
+      doc.setFont('Helvetica', 'normal');
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      doc.text(showReportModal.id, col1_x + 35, curr_y);
+      doc.text(showReportModal.creator.name, col2_x + 32, curr_y);
+
+      // Row 3
+      curr_y = 58;
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text('Content Title:', col1_x, curr_y);
+      doc.text('Reporter Identity:', col2_x, curr_y);
+      doc.setFont('Helvetica', 'normal');
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      
+      // Truncate title nicely if too long
+      const titleText = showReportModal.title.length > 32 
+        ? showReportModal.title.substring(0, 32) + '...' 
+        : showReportModal.title;
+      doc.text(titleText, col1_x + 35, curr_y);
+      doc.text(currentUser?.name || 'AnonymousUser', col2_x + 32, curr_y);
+
+      // Row 4
+      curr_y = 66;
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text('Report Timestamp:', col1_x, curr_y);
+      doc.text('Investigation Status:', col2_x, curr_y);
+      doc.setFont('Helvetica', 'normal');
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      doc.text(timestamp, col1_x + 35, curr_y);
+      doc.text('Submitted - Pending Review', col2_x + 32, curr_y);
+
+      // Divider
+      doc.setDrawColor(240, 240, 245);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, 74, 180, 8, 'F');
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 110);
+      doc.text('LIFECYCLE PROGRESS: [x] SUBMITTED ---> [ ] UNDER REVIEW ---> [ ] ACTION TAKEN ---> [ ] CLOSED', 18, 79);
+
+      // Additional Details Segment
+      doc.setFontSize(11);
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      doc.text('ADDITIONAL COMPLAINT DETAILS & STATEMENT', 15, 93);
+      doc.setDrawColor(220, 220, 225);
+      doc.line(15, 96, 195, 96);
+
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 70);
+      
+      // Multiline text wrap for details
+      // Multiline text wrap for details
+      const detailsParagraph = reportDetails.trim() || 'No additional statement or contextual descriptions were supplied with this incident filing.';
+      const splitDetails = doc.splitTextToSize(detailsParagraph, 180);
+      doc.text(splitDetails, 15, 102);
+
+      // Calculate y position for internal notes or evidence
+      let currentNotesY = 102 + (splitDetails.length * 5) + 8;
+
+      if (reportInternalNotes.trim()) {
+        doc.setFontSize(11);
+        doc.setFont('Helvetica', 'bold');
+        doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+        doc.text('INTERNAL DIAGNOSTIC NOTES & TIMESTAMPS', 15, currentNotesY);
+        doc.line(15, currentNotesY + 2, 195, currentNotesY + 2);
+
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(60, 60, 70);
+        const splitNotes = doc.splitTextToSize(reportInternalNotes.trim(), 180);
+        doc.text(splitNotes, 15, currentNotesY + 8);
+        currentNotesY = currentNotesY + 8 + (splitNotes.length * 5) + 8;
+      } else {
+        currentNotesY += 2;
+      }
+
+      // Evidence Header
+      doc.setFontSize(11);
+      doc.setFont('Helvetica', 'bold');
+      doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+      doc.text('VISUAL EVIDENCE & SYSTEM ARTIFACTS', 15, currentNotesY);
+      doc.line(15, currentNotesY + 2, 195, currentNotesY + 2);
+
+      let evidence_y = currentNotesY + 8;
+
+      if (reportEvidence) {
+        // Add captured Base64 Snapshot image to PDF
+        const imgWidth = 100;
+        const imgHeight = 75;
+        doc.addImage(reportEvidence, 'JPEG', 15, evidence_y, imgWidth, imgHeight);
+        
+        doc.setFontSize(8);
+        doc.setFont('Helvetica', 'normal');
+        doc.setTextColor(120, 120, 130);
+        doc.text('* Physical evidence taken directly from secure browser viewport context.', 15, evidence_y + imgHeight + 6);
+      } else {
+        doc.setDrawColor(200, 200, 205);
+        doc.setFillColor(250, 250, 252);
+        doc.rect(15, evidence_y, 180, 25, 'FD');
+        doc.setFont('Helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.setTextColor(140, 140, 150);
+        doc.text('No interactive camera snapshot or visual screen evidence was captured with this report.', 22, evidence_y + 14);
+      }
+
+      // Footer disclaimer
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 160);
+      doc.text('PushPlay Safety Enforcement Team • Automated Compliance Form export system.', 15, 282);
+      doc.text('Page 1 of 1', 180, 282);
+
+      // Save PDF
+      doc.save(`PushPlay_Violation_Report_${showReportModal.id}.pdf`);
+      setToastMessage('PDF Incident Report downloaded successfully!');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setToastMessage('Error exporting PDF report document.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
   };
 
   // Handle Tipping
@@ -1845,11 +2113,32 @@ export default function App() {
         <div className="fixed inset-0 bg-[#000]/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
           <div className="bg-zinc-950 border border-zinc-900 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-left" id="report-modal">
             <div className="flex justify-between items-center border-b border-zinc-900 pb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 <span className="p-1.5 bg-red-650/10 text-red-500 rounded-lg border border-red-500/20">
                   <Flag className="w-4 h-4" />
                 </span>
-                <h3 className="text-sm font-bold text-zinc-150">Flag Content for Review</h3>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-150">Flag Content for Review</h3>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[9px] text-zinc-500 font-mono">Priority:</span>
+                    {(() => {
+                      let priorityText = 'LOW';
+                      let priorityColor = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+                      if (reportReason === 'Violence / Dangerous' || reportReason === 'Hate Speech / Harassment') {
+                        priorityText = 'HIGH';
+                        priorityColor = 'bg-red-500/15 text-red-400 border-red-500/30';
+                      } else if (reportReason === 'Inappropriate Content' || reportReason === 'Violates Copyright') {
+                        priorityText = 'MEDIUM';
+                        priorityColor = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+                      }
+                      return (
+                        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${priorityColor}`}>
+                          {priorityText}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
               <button 
                 onClick={handleCloseReportModal}
@@ -1863,6 +2152,59 @@ export default function App() {
               <span className="text-[9px] font-mono text-zinc-500 uppercase block">FLAGGING STREAM</span>
               <p className="text-xs font-bold text-zinc-200 truncate">{showReportModal.title}</p>
               <p className="text-[10px] text-zinc-500">By: {showReportModal.creator.name}</p>
+            </div>
+
+            {/* Visual Progress Stepper for Report Status Lifecycle */}
+            <div className="bg-[#0c0c0f] border border-zinc-900 rounded-xl p-3.5 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">Investigation Lifecycle Tracker</span>
+                <span className="text-[8px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded">
+                  Phase 1: Active
+                </span>
+              </div>
+              
+              <div className="relative flex items-center justify-between pt-1">
+                {/* Connecting Progress Line Background */}
+                <div className="absolute top-3.5 left-4 right-4 h-0.5 bg-zinc-850 z-0"></div>
+                {/* Connecting Progress Line Active Segment */}
+                <div className="absolute top-3.5 left-4 w-[28%] h-0.5 bg-gradient-to-r from-red-500 to-red-400 z-0"></div>
+
+                {/* Step 1: Submitted */}
+                <div className="flex flex-col items-center text-center z-10 relative">
+                  <div className="w-7 h-7 rounded-full bg-red-950/50 border border-red-500 flex items-center justify-center text-[10px] font-bold text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.15)]">
+                    ✓
+                  </div>
+                  <span className="text-[10px] font-semibold text-zinc-200 mt-1 block">Submitted</span>
+                  <span className="text-[8px] font-mono text-zinc-450">Active Now</span>
+                </div>
+
+                {/* Step 2: Under Review */}
+                <div className="flex flex-col items-center text-center z-10 relative">
+                  <div className="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-mono font-bold text-zinc-500">
+                    2
+                  </div>
+                  <span className="text-[10px] font-medium text-zinc-400 mt-1 block">Under Review</span>
+                  <span className="text-[8px] font-mono text-zinc-550">Pending</span>
+                </div>
+
+                {/* Step 3: Action Taken */}
+                <div className="flex flex-col items-center text-center z-10 relative">
+                  <div className="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-mono font-bold text-zinc-500">
+                    3
+                  </div>
+                  <span className="text-[10px] font-medium text-zinc-400 mt-1 block">Action Taken</span>
+                  <span className="text-[8px] font-mono text-zinc-550">Pending</span>
+                </div>
+
+                {/* Step 4: Closed */}
+                <div className="flex flex-col items-center text-center z-10 relative">
+                  <div className="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-mono font-bold text-zinc-500">
+                    4
+                  </div>
+                  <span className="text-[10px] font-medium text-zinc-400 mt-1 block">Closed</span>
+                  <span className="text-[8px] font-mono text-zinc-550">Pending</span>
+                </div>
+              </div>
             </div>
 
             <form onSubmit={handleSubmitReport} className="space-y-4">
@@ -1887,28 +2229,137 @@ export default function App() {
                   placeholder="Please specify timestamps or other helpful details..."
                   value={reportDetails}
                   onChange={(e) => setReportDetails(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-900 rounded-xl text-xs px-3 py-2 text-zinc-200 outline-none h-24 resize-none focus:border-red-500/30"
+                  className="w-full bg-zinc-950 border border-zinc-900 rounded-xl text-xs px-3 py-2 text-zinc-200 outline-none h-20 resize-none focus:border-red-500/30"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold flex justify-between items-center">
+                  <span>Internal Notes & Timestamps</span>
+                  <span className="text-[8px] text-zinc-500 font-normal italic lowercase bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-850">Diagnostic context</span>
+                </label>
+                <textarea
+                  placeholder="Enter diagnostic values, custom tags, or specific timestamps (e.g. 02:45 - violation occurs)..."
+                  value={reportInternalNotes}
+                  onChange={(e) => setReportInternalNotes(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-900 rounded-xl text-xs px-3 py-2 text-zinc-200 outline-none h-18 resize-none focus:border-red-500/30 font-mono text-[11px]"
+                />
+              </div>
+
+              {/* Evidence Capture Module */}
+              <div className="space-y-2 border-t border-zinc-900 pt-3">
+                <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold flex justify-between items-center">
+                  <span>Visual Evidence (Snapshot)</span>
+                  <span className="text-zinc-550 lowercase font-normal italic">supports web camera access</span>
+                </label>
+
+                {cameraError && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 text-[10px] text-red-400 font-mono leading-normal">
+                    ⚠️ {cameraError}
+                  </div>
+                )}
+
+                {/* If we have evidence captured, show the preview */}
+                {reportEvidence ? (
+                  <div className="relative rounded-xl border border-zinc-800 bg-[#0c0c0f] p-1 overflow-hidden group">
+                    <img
+                      src={reportEvidence}
+                      alt="Evidence Snapshot"
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleStartCamera}
+                        className="p-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300 text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Retake
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDiscardSnapshot}
+                        className="p-1.5 bg-red-950/40 hover:bg-red-900 border border-red-800 rounded-lg text-red-400 text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        ✕ Discard
+                      </button>
+                    </div>
+                    <span className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/75 text-[8px] font-mono rounded border border-zinc-800 text-emerald-400">
+                      ✓ Snapshot Captured
+                    </span>
+                  </div>
+                ) : isCameraActive ? (
+                  /* If Camera is live, show the video feed and capture controls */
+                  <div className="relative rounded-xl border border-zinc-800 bg-black overflow-hidden flex flex-col items-center">
+                    <video
+                      id="report-camera-preview"
+                      className="w-full h-40 object-cover"
+                      autoPlay
+                      playsInline
+                      muted
+                    />
+                    <div className="absolute bottom-2 inset-x-0 px-3 flex justify-between items-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (reportVideoStreamRef.current) {
+                            reportVideoStreamRef.current.getTracks().forEach(t => t.stop());
+                            reportVideoStreamRef.current = null;
+                          }
+                          setIsCameraActive(false);
+                        }}
+                        className="px-2 py-1 bg-zinc-950/80 hover:bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-lg text-[9px] font-mono cursor-pointer transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCaptureSnapshot}
+                        className="px-3 py-1 bg-red-650 hover:bg-red-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all shadow-md shadow-red-600/25"
+                      >
+                        <Camera className="w-3 h-3 animate-pulse" /> Take Snapshot
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Initial trigger button to start the camera process */
+                  <button
+                    type="button"
+                    onClick={handleStartCamera}
+                    className="w-full py-2.5 bg-zinc-950 hover:bg-zinc-900 text-zinc-300 border border-zinc-900 hover:border-zinc-700 rounded-xl text-xs font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-inner"
+                  >
+                    <Camera className="w-4 h-4 text-zinc-400" />
+                    <span>Capture Camera Snapshot</span>
+                  </button>
+                )}
               </div>
 
               <p className="text-[10px] text-zinc-500 leading-normal">
                 PushPlay moderators investigate flagged streams 24/7. Filing false or malicious reports may result in account restriction.
               </p>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-2.5 pt-2">
                 <button
                   type="button"
-                  onClick={handleCloseReportModal}
-                  className="flex-1 py-2.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 border border-zinc-850 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  onClick={handleDownloadPdfReport}
+                  className="w-full py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
-                  Cancel
+                  <Download className="w-3.5 h-3.5 text-red-500" /> Export PDF Draft Report
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-red-600/10"
-                >
-                  Submit Flag
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseReportModal}
+                    className="flex-1 py-2.5 bg-zinc-950 hover:bg-zinc-900 text-zinc-450 hover:text-zinc-300 border border-zinc-900 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-red-600/10"
+                  >
+                    Submit Flag
+                  </button>
+                </div>
               </div>
             </form>
           </div>
