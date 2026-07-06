@@ -76,6 +76,8 @@ export default function ShortsPlayer({
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTime = useRef<number>(0);
   const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartTime = useRef<number>(0);
 
   // Handle keypresses, wheel and swipes
   const handlePrev = () => {
@@ -117,21 +119,49 @@ export default function ShortsPlayer({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartTime.current = Date.now();
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
+    if (touchStartY.current === null || touchStartX.current === null) return;
     const touchEndY = e.changedTouches[0].clientY;
-    const diff = touchStartY.current - touchEndY;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffY = touchStartY.current - touchEndY;
+    const diffX = touchStartX.current - touchEndX;
+    const duration = Date.now() - touchStartTime.current;
+
     // Swipe threshold of 45px
-    if (Math.abs(diff) > 45) {
-      if (diff > 0) {
+    if (Math.abs(diffY) > 45) {
+      if (diffY > 0) {
         handleNext();
       } else {
         handlePrev();
       }
+    } else if (Math.abs(diffY) < 15 && Math.abs(diffX) < 15 && duration < 350) {
+      // It's a clean TAP/HIT on the screen!
+      const target = e.target as HTMLElement;
+      const isInteractive = target.closest('button') || target.closest('a') || target.closest('[role="button"]') || target.closest('#shorts-action-rail');
+      if (!isInteractive) {
+        e.preventDefault(); // Prevent synthesized mouse click
+        handleNext();
+      }
     }
     touchStartY.current = null;
+    touchStartX.current = null;
+  };
+
+  const handleViewportClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('[role="button"]') || target.closest('#shorts-action-rail')) {
+      return;
+    }
+    // Mobile/tablet tapping scrolls to next, desktop toggles play/pause
+    if (window.innerWidth < 1024) {
+      handleNext();
+    } else {
+      setIsPlaying(prev => !prev);
+    }
   };
 
   // Animate canvas short looping visualizer
@@ -352,18 +382,25 @@ export default function ShortsPlayer({
         onTouchEnd={handleTouchEnd}
         className="relative h-[min(74vh,800px)] max-h-full aspect-[9/16] w-auto max-w-full bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200 select-none touch-pan-y"
       >
+        {/* Mobile/Tablet Touch-to-Scroll Hint */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none lg:hidden animate-pulse">
+          <div className="bg-black/60 backdrop-blur-md border border-zinc-800/80 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold-500"></span>
+            <span className="text-[9px] font-mono font-bold text-zinc-350 uppercase tracking-wider">Tap screen to skip</span>
+          </div>
+        </div>
         {isRealVideo ? (
           <video
             ref={videoRef}
             src={video.url}
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={handleViewportClick}
             loop
             className={`w-full h-full block cursor-pointer object-cover bg-black animate-in fade-in duration-300 ${getColorGradeClass(video.colorGrade)}`}
           />
         ) : (
           <canvas
             ref={canvasRef}
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={handleViewportClick}
             className={`w-full h-full block cursor-pointer ${getColorGradeClass(video.colorGrade)}`}
           />
         )}
