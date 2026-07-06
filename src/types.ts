@@ -144,4 +144,5 @@ export interface VideoReport {
   status: 'pending' | 'resolved' | 'dismissed';
   evidence?: string; // Base64 snapshot image
   internalNotes?: string; // Internal/diagnostic Notes & Timestamps
+  urgent?: boolean; // High Urgency marker
 }

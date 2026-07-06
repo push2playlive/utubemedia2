@@ -657,7 +657,14 @@ export default function AdminDashboard({
                               )}
                             </td>
                             <td className="p-4 whitespace-nowrap font-semibold text-zinc-200">
-                              {rep.reason}
+                              <div className="flex items-center gap-1.5">
+                                <span>{rep.reason}</span>
+                                {rep.urgent && (
+                                  <span className="bg-red-500/15 text-red-400 border border-red-500/30 text-[8px] font-mono font-black px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
+                                    🚨 Critical
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4 max-w-xs">
                               <p className="text-zinc-400 line-clamp-2 leading-relaxed">{rep.details || 'No additional comments provided.'}</p>

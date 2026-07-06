@@ -163,6 +163,7 @@ export default function App() {
   const [reportReason, setReportReason] = useState('Inappropriate Content');
   const [reportDetails, setReportDetails] = useState('');
   const [reportInternalNotes, setReportInternalNotes] = useState('');
+  const [reportUrgent, setReportUrgent] = useState(false);
   const [reportEvidence, setReportEvidence] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -257,6 +258,7 @@ export default function App() {
     setReportReason('Inappropriate Content');
     setReportDetails('');
     setReportInternalNotes('');
+    setReportUrgent(false);
     setReportEvidence(null);
     if (reportVideoStreamRef.current) {
       reportVideoStreamRef.current.getTracks().forEach(track => track.stop());
@@ -280,7 +282,8 @@ export default function App() {
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
       status: 'pending',
       evidence: reportEvidence || undefined,
-      internalNotes: reportInternalNotes.trim() || undefined
+      internalNotes: reportInternalNotes.trim() || undefined,
+      urgent: reportUrgent
     };
 
     const updatedReports = [newReport, ...reports];
@@ -386,7 +389,9 @@ export default function App() {
 
       // Priority calculation
       let priorityText = 'LOW';
-      if (reportReason === 'Violence / Dangerous' || reportReason === 'Hate Speech / Harassment') {
+      if (reportUrgent) {
+        priorityText = 'CRITICAL';
+      } else if (reportReason === 'Violence / Dangerous' || reportReason === 'Hate Speech / Harassment') {
         priorityText = 'HIGH';
       } else if (reportReason === 'Inappropriate Content' || reportReason === 'Violates Copyright') {
         priorityText = 'MEDIUM';
@@ -408,8 +413,11 @@ export default function App() {
       doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
       doc.text(reportReason, col1_x + 35, curr_y);
       
-      // Highlight priority in red if high
-      if (priorityText === 'HIGH') {
+      // Highlight priority in red if high or critical
+      if (priorityText === 'CRITICAL') {
+        doc.setTextColor(239, 68, 68); // Bright critical red
+        doc.setFont('Helvetica', 'bold');
+      } else if (priorityText === 'HIGH') {
         doc.setTextColor(220, 38, 38);
         doc.setFont('Helvetica', 'bold');
       } else if (priorityText === 'MEDIUM') {
@@ -569,6 +577,38 @@ export default function App() {
       setToastMessage('Error copying deep link.');
       setTimeout(() => setToastMessage(null), 3000);
     }
+  };
+
+  const handleAutoGenerateNotes = () => {
+    if (!showReportModal) return;
+
+    const videoComments = comments.filter(c => c.videoId === showReportModal.id);
+    const complaintKeywords = [
+      'report', 'spam', 'scam', 'fake', 'copy', 'copyright', 'steal', 'stolen', 'stole', 'plagiarized',
+      'hate', 'harass', 'abuse', 'offensive', 'inappropriate', 'violence', 'violent', 'blood',
+      'nudity', 'threat', 'racist', 'sexist', 'kill', 'hurt', 'fraud', 'cheat', 'lies', 'liar',
+      'click here', 'scammer', 'ad', 'offensive', 'vulgar', 'toxic', 'rude', 'broken', 'worst', 'stolen content'
+    ];
+
+    const detected = videoComments.filter(comment => {
+      const textLower = comment.text.toLowerCase();
+      return complaintKeywords.some(kw => textLower.includes(kw));
+    });
+
+    if (detected.length > 0) {
+      const summary = detected.map((c, i) => `[Complaint #${i + 1}] @${c.userName}: "${c.text}"`).join('\n');
+      setReportInternalNotes(`[Auto-Generated from Comment Thread]\nDetected ${detected.length} potential user complaint(s) out of ${videoComments.length} total comments:\n\n${summary}\n\nScan Timestamp: ${new Date().toISOString().replace('T', ' ').substring(0, 19)}`);
+      setToastMessage(`Scanned ${videoComments.length} comments. Found ${detected.length} complaints!`);
+    } else {
+      if (videoComments.length > 0) {
+        setReportInternalNotes(`[Auto-Generated from Comment Thread]\nNo high-probability complaints detected out of ${videoComments.length} comments.\n\nLatest comments for context:\n${videoComments.slice(0, 3).map((c, i) => `[Comment #${i+1}] @${c.userName}: "${c.text}"`).join('\n')}\n\nScan Timestamp: ${new Date().toISOString().replace('T', ' ').substring(0, 19)}`);
+        setToastMessage(`Scanned ${videoComments.length} comments. No specific complaints found, pulled latest comments for context.`);
+      } else {
+        setReportInternalNotes(`[Auto-Generated from Comment Thread]\nNo comments exist on this video to analyze.\n\nScan Timestamp: ${new Date().toISOString().replace('T', ' ').substring(0, 19)}`);
+        setToastMessage(`No comments found on this video.`);
+      }
+    }
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Handle Tipping
@@ -2191,6 +2231,14 @@ export default function App() {
                         );
                       })()}
                     </div>
+                    {reportUrgent && (
+                      <>
+                        <span className="text-zinc-800 text-[10px] hidden sm:inline">•</span>
+                        <span className="text-[9px] font-mono font-black bg-red-650 text-white border border-red-500 px-1.5 py-0.5 rounded shadow-lg shadow-red-600/30 animate-pulse flex items-center gap-1">
+                          🚨 Priority: Critical
+                        </span>
+                      </>
+                    )}
                     <span className="text-zinc-800 text-[10px] hidden sm:inline">•</span>
                     <span className="text-[9px] font-mono text-red-400 font-bold bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 flex items-center gap-1 animate-pulse">
                       ⚠️ {getSeededReportCount(showReportModal.id)} other reports filed
@@ -2281,6 +2329,28 @@ export default function App() {
                 </select>
               </div>
 
+              {/* High Urgency Toggle Switch */}
+              <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-3 flex items-center justify-between transition-all hover:bg-red-500/10">
+                <div className="space-y-0.5">
+                  <span className="block text-xs font-bold text-red-400 font-sans tracking-wide">High Urgency Mode</span>
+                  <span className="block text-[10px] text-zinc-400 font-sans">Escalate report directly to executive response team</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReportUrgent(!reportUrgent)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    reportUrgent ? 'bg-red-500' : 'bg-zinc-800'
+                  }`}
+                  id="urgency-toggle"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      reportUrgent ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               <div className="space-y-1">
                 <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold">Additional Details (Optional)</label>
                 <textarea
@@ -2292,10 +2362,18 @@ export default function App() {
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold flex justify-between items-center">
-                  <span>Internal Notes & Timestamps</span>
-                  <span className="text-[8px] text-zinc-500 font-normal italic lowercase bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-850">Diagnostic context</span>
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-[10px] font-mono text-zinc-400 uppercase font-bold">
+                    Internal Notes & Timestamps
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateNotes}
+                    className="text-[9px] text-amber-500 hover:text-amber-400 font-mono font-bold bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 rounded-lg px-2 py-0.5 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-2.5 h-2.5" /> Auto-generate from comments
+                  </button>
+                </div>
                 <textarea
                   placeholder="Enter diagnostic values, custom tags, or specific timestamps (e.g. 02:45 - violation occurs)..."
                   value={reportInternalNotes}
