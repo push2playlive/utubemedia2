@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, CheckCircle, Video as VideoIcon, Sparkles, FileVideo } from 'lucide-react';
-import { Video, Creator } from '../types';
+import { Video, Creator, getColorGradeClass } from '../types';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -21,13 +21,44 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [videoFileUrl, setVideoFileUrl] = useState('');
+  const [colorGrade, setColorGrade] = useState('none');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
+  const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setThumbnail(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   if (!isOpen) return null;
 
   const handleFileProcess = (file: File) => {
     setFileName(file.name);
+
+    // Create Object URL for the local video file so it can be played directly
+    const localUrl = URL.createObjectURL(file);
+    setVideoFileUrl(localUrl);
+
+    // Estimate the actual duration of the uploaded video
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    tempVideo.onloadedmetadata = () => {
+      const minutes = Math.floor(tempVideo.duration / 60);
+      const seconds = Math.floor(tempVideo.duration % 60);
+      setDuration(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+    tempVideo.src = localUrl;
+
     if (!title.trim()) {
       // Remove file extension for default title suggestion
       const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
@@ -60,19 +91,22 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
     onUpload({
       title: title.trim(),
       description: description.trim() || 'A majestic celestial stream of pure inspiration.',
-      url: type === 'short' ? 'heavenly_particle' : 'cloud_wisdom', // map to dynamic interactive visualizers
+      url: videoFileUrl || (type === 'short' ? 'heavenly_particle' : 'cloud_wisdom'), // map to dynamic interactive visualizers
       thumbnail: thumbnail.trim() || (type === 'short' ? 'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=400' : 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800'),
       duration,
       category,
       creator: creatorDetails,
       isShort: type === 'short',
       subscriptionGated,
-      adEnabled
+      adEnabled,
+      colorGrade
     });
 
     setTitle('');
     setDescription('');
     setFileName('');
+    setVideoFileUrl('');
+    setColorGrade('none');
     setUploadSuccess(true);
     setTimeout(() => {
       setUploadSuccess(false);
@@ -186,15 +220,109 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg text-xs px-3 py-2 text-zinc-200 font-mono outline-none"
               />
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 font-mono">Custom Thumbnail Image URL</label>
-              <input
-                type="url"
-                placeholder="https://images.unsplash.com/photo-..."
-                value={thumbnail}
-                onChange={(e) => setThumbnail(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg text-xs px-3 py-2 text-zinc-200 outline-none"
-              />
+          </div>
+
+          <div className="space-y-1.5" id="thumbnail-upload-section">
+            <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">Stream Thumbnail</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Thumbnail Preview / Dropzone */}
+              <div 
+                onClick={() => thumbnailInputRef.current?.click()}
+                className="bg-zinc-950 border border-zinc-850 rounded-xl p-4 flex flex-col items-center justify-center min-h-[110px] cursor-pointer hover:bg-zinc-900/40 hover:border-zinc-700 transition-all text-center relative overflow-hidden group"
+                id="thumbnail-upload-zone"
+              >
+                <input
+                  type="file"
+                  ref={thumbnailInputRef}
+                  onChange={handleThumbnailFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+                {thumbnail ? (
+                  <>
+                    <img 
+                      src={thumbnail} 
+                      alt="Thumbnail Preview" 
+                      className={`absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity ${getColorGradeClass(colorGrade)}`}
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="relative z-10 bg-black/80 px-2.5 py-1 rounded text-[9px] font-mono text-zinc-350 border border-zinc-800">
+                      Click to Replace Thumbnail
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="mx-auto text-zinc-500 group-hover:text-gold-400 transition-colors">
+                      <Upload className="w-4 h-4 mx-auto" />
+                    </div>
+                    <span className="text-[10px] font-semibold text-zinc-400 block">Upload Thumbnail Image</span>
+                    <span className="text-[9px] text-zinc-600 block">Click or select a local file (PNG, JPG)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Thumbnail URL Input & Manual override */}
+              <div className="flex flex-col justify-between p-3.5 bg-zinc-950 border border-zinc-850 rounded-xl gap-2">
+                <div className="space-y-1.5">
+                  <span className="text-[9px] font-mono text-zinc-500 block uppercase tracking-wide">Or paste custom image URL:</span>
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/photo-..."
+                    value={thumbnail.startsWith('data:') ? '' : thumbnail}
+                    onChange={(e) => setThumbnail(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg text-xs px-2.5 py-1.5 text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-zinc-700"
+                  />
+                </div>
+                {thumbnail && (
+                  <button
+                    type="button"
+                    onClick={() => setThumbnail('')}
+                    className="text-left text-[9px] font-mono text-red-500 hover:text-red-400 transition-colors self-start mt-1 flex items-center gap-1 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" /> Clear Selection
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Color Grade Filter Selector */}
+          <div className="space-y-2 bg-zinc-950 p-3.5 rounded-xl border border-zinc-850" id="color-grade-filtering-section">
+            <div className="flex items-center justify-between">
+              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
+                Color Grade Adjustment
+              </label>
+              <span className="text-[9px] text-zinc-500 font-mono">
+                Applied to video and thumbnail
+              </span>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+              {[
+                { id: 'none', name: 'Normal', icon: '✨' },
+                { id: 'grayscale', name: 'Noir', icon: '⚫' },
+                { id: 'sepia', name: 'Sepia', icon: '🟤' },
+                { id: 'contrast', name: 'Dramatic', icon: '🌗' },
+                { id: 'vintage', name: 'Vintage', icon: '🎞️' },
+                { id: 'warm', name: 'Amber', icon: '🌅' },
+                { id: 'cool', name: 'Cyber', icon: '❄️' },
+              ].map((opt) => {
+                const isActive = colorGrade === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setColorGrade(opt.id)}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-red-500/15 border-red-500/50 text-red-400 font-bold'
+                        : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200 hover:border-zinc-750'
+                    }`}
+                  >
+                    <span className="text-sm mb-0.5">{opt.icon}</span>
+                    <span className="text-[9px] font-mono truncate w-full">{opt.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

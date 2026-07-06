@@ -55,6 +55,7 @@ export interface Video {
   adEnabled: boolean;
   subscriptionGated: boolean; // Needs Creator Subscription to watch
   products?: StoreProduct[]; // Products linked to this video/creator
+  colorGrade?: string; // Color adjustment filter
 }
 
 export interface CommentReply {
@@ -153,3 +154,16 @@ export interface VideoReport {
   urgent?: boolean; // High Urgency marker
   statusHistory?: StatusHistoryEntry[];
 }
+
+export function getColorGradeClass(grade?: string): string {
+  switch (grade) {
+    case 'grayscale': return 'grayscale';
+    case 'sepia': return 'sepia';
+    case 'contrast': return 'contrast-125 brightness-95';
+    case 'vintage': return 'sepia-[0.35] saturate-[1.15] contrast-[0.9] brightness-[1.05]';
+    case 'warm': return 'sepia-[0.2] hue-rotate-[10deg] saturate-[1.25]';
+    case 'cool': return 'hue-rotate-[-10deg] saturate-[1.1] brightness-[0.95] contrast-[1.05]';
+    default: return '';
+  }
+}
+

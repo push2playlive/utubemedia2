@@ -25,7 +25,7 @@ import {
   initialProducts,
   creators 
 } from './data';
-import { Video, Comment, AdCampaign, UserWallet, Playlist, StoreProduct, StoreLease, Creator, VideoReport } from './types';
+import { Video, Comment, AdCampaign, UserWallet, Playlist, StoreProduct, StoreLease, Creator, VideoReport, getColorGradeClass } from './types';
 import { Compass, Flame, Clock, Heart, Play, Plus, Trash2, List, Grid, Sparkles, Filter, Store, AlertCircle, ShoppingBag, Share2, Check, Copy, QrCode, History, Flag, Camera, RefreshCw, Download } from 'lucide-react';
 
 export default function App() {
@@ -1387,7 +1387,7 @@ export default function App() {
                             <img 
                               src={video.thumbnail} 
                               alt="" 
-                              className="w-full h-full object-cover group-hover/card:scale-103 transition-transform duration-500"
+                              className={`w-full h-full object-cover group-hover/card:scale-103 transition-transform duration-500 ${getColorGradeClass(video.colorGrade)}`}
                               referrerPolicy="no-referrer"
                             />
                             {/* Duration Indicator */}
@@ -1446,7 +1446,7 @@ export default function App() {
                         <img 
                           src={short.thumbnail} 
                           alt="" 
-                          className="w-full h-full object-cover group-hover/short:scale-103 transition-transform duration-500"
+                          className={`w-full h-full object-cover group-hover/short:scale-103 transition-transform duration-500 ${getColorGradeClass(short.colorGrade)}`}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/90 via-[#050507]/20 to-transparent flex flex-col justify-end p-3 text-left">
                           <h4 className="text-[10px] font-bold text-zinc-100 line-clamp-2 leading-snug group-hover/short:text-gold-400 transition-colors duration-200">{short.title}</h4>
@@ -1600,7 +1600,7 @@ export default function App() {
                           onClick={() => handleNavigate('video-detail', { video })}
                           className="flex gap-3 bg-[#0f0f12]/30 border border-zinc-900/40 hover:border-gold-500/15 hover:bg-[#0f0f12]/85 rounded-xl p-2 cursor-pointer transition-all duration-200 group"
                         >
-                          <img src={video.thumbnail} alt="" className="w-24 h-14 object-cover rounded-lg border border-zinc-900/60 flex-shrink-0" />
+                          <img src={video.thumbnail} alt="" className={`w-24 h-14 object-cover rounded-lg border border-zinc-900/60 flex-shrink-0 ${getColorGradeClass(video.colorGrade)}`} />
                           <div className="overflow-hidden space-y-1">
                             <h4 className="text-[11px] font-bold text-zinc-200 line-clamp-2 leading-tight group-hover:text-gold-400 transition-colors">{video.title}</h4>
                             <p className="text-[10px] text-zinc-400 truncate">{video.creator.name}</p>
@@ -1796,7 +1796,7 @@ export default function App() {
                                   >
                                     <span className="text-[10px] text-zinc-500 font-mono w-4 text-center">{idx + 1}</span>
                                     <div className="w-14 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 relative">
-                                      <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" />
+                                      <img src={vid.thumbnail} alt="" className={`w-full h-full object-cover ${getColorGradeClass(vid.colorGrade)}`} />
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <h4 className="text-xs font-semibold text-zinc-250 truncate group-hover/vid:text-gold-400 transition-colors">{vid.title}</h4>

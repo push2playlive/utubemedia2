@@ -8,7 +8,7 @@ import {
 import { Video as VideoType, Creator, StoreLease, StoreProduct } from '../types';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, 
-  ResponsiveContainer, BarChart, Bar, Legend
+  ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line
 } from 'recharts';
 
 interface CreatorStudioProps {
@@ -27,7 +27,7 @@ export default function CreatorStudio({
   onUpdateProfile
 }: CreatorStudioProps) {
   // Navigation tabs of Creator Studio (matching the requested screenshots & topics)
-  type TabType = 'analytics' | 'content' | 'customisation' | 'earn' | 'copyright';
+  type TabType = 'analytics' | 'analytics-daily' | 'content' | 'customisation' | 'earn' | 'copyright';
   const [activeTab, setActiveTab] = useState<TabType>('analytics');
 
   // Channel customisation state
@@ -75,6 +75,17 @@ export default function CreatorStudio({
     { date: 'Jun 26', Views: 85, 'Watch time (hours)': 3.4, Subscribers: 5 },
     { date: 'Jun 30', Views: 98, 'Watch time (hours)': 4.2, Subscribers: 6 },
     { date: 'Jul 03', Views: 125, 'Watch time (hours)': 5.1, Subscribers: 6 }
+  ];
+
+  // Daily views and revenue for the last 7 days
+  const dailyViewsData = [
+    { day: 'Jun 30', Views: 120, 'Revenue (PPL)': 12.0 },
+    { day: 'Jul 01', Views: 185, 'Revenue (PPL)': 18.5 },
+    { day: 'Jul 02', Views: 240, 'Revenue (PPL)': 24.0 },
+    { day: 'Jul 03', Views: 310, 'Revenue (PPL)': 31.0 },
+    { day: 'Jul 04', Views: 280, 'Revenue (PPL)': 28.0 },
+    { day: 'Jul 05', Views: 395, 'Revenue (PPL)': 39.5 },
+    { day: 'Jul 06', Views: 450, 'Revenue (PPL)': 45.0 }
   ];
 
   // User videos
@@ -158,6 +169,19 @@ export default function CreatorStudio({
         >
           <TrendingUp className="w-4 h-4" />
           <span>Channel Analytics</span>
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('analytics-daily')}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            activeTab === 'analytics-daily' 
+              ? 'bg-zinc-900 text-gold-400 border border-zinc-800 font-bold' 
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-950'
+          }`}
+          id="tab-analytics-daily"
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Analytics</span>
         </button>
 
         <button 
@@ -360,6 +384,146 @@ export default function CreatorStudio({
                   <p className="text-[10px] text-zinc-500">No broadcasts recorded yet.</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB CONTENT 1B: DAILY ANALYTICS --- */}
+      {activeTab === 'analytics-daily' && (
+        <div className="space-y-6 animate-in fade-in duration-200" id="studio-daily-analytics">
+          {/* Quick Metrics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4" id="daily-metrics-summary-grid">
+            <div className="bg-zinc-950 border border-zinc-900 p-4.5 rounded-2xl space-y-1.5 shadow-md" id="metric-total-views-7d">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Total Views (7D)</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-zinc-150">1,990</span>
+                <span className="text-xs text-emerald-400 font-mono font-semibold">↑ 34.2%</span>
+              </div>
+              <p className="text-[10px] text-zinc-600">Aggregate views across all streams</p>
+            </div>
+
+            <div className="bg-zinc-950 border border-zinc-900 p-4.5 rounded-2xl space-y-1.5 shadow-md" id="metric-avg-views-7d">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Daily Average</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-zinc-150">284</span>
+                <span className="text-xs text-emerald-400 font-mono font-semibold">↑ 12.8%</span>
+              </div>
+              <p className="text-[10px] text-zinc-600">Average views per calendar day</p>
+            </div>
+
+            <div className="bg-zinc-950 border border-zinc-900 p-4.5 rounded-2xl space-y-1.5 shadow-md" id="metric-peak-views-7d">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Peak Day Views</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-zinc-150">450</span>
+                <span className="text-[10px] text-zinc-400 font-mono font-medium">On Jul 06</span>
+              </div>
+              <p className="text-[10px] text-zinc-600">Highest daily activity log</p>
+            </div>
+
+            <div className="bg-zinc-950 border border-zinc-900 p-4.5 rounded-2xl space-y-1.5 shadow-md" id="metric-subscribers-gained-7d">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-mono">Estimated Revenue</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-gold-400 font-mono">199.0 PPL</span>
+                <span className="text-xs text-emerald-400 font-mono font-semibold">↑ 34%</span>
+              </div>
+              <p className="text-[10px] text-zinc-600">Earnings from monetised ad plays</p>
+            </div>
+          </div>
+
+          {/* Bar & Line Chart Panel */}
+          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-xl" id="daily-views-chart-panel">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-3" id="daily-views-chart-header">
+              <div>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider font-mono">Daily Video Views & Revenue</h3>
+                <p className="text-xs text-zinc-500 mt-0.5">Showing daily video views and correlation with monetised revenue (PPL) for the last 7 days</p>
+              </div>
+              <div className="text-xs text-zinc-400 bg-zinc-900 px-3 py-1 rounded-lg border border-zinc-800" id="daily-views-time-badge">
+                Last 7 Days
+              </div>
+            </div>
+
+            <div className="h-80" id="daily-views-chart-wrapper">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dailyViewsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
+                  <XAxis dataKey="day" stroke="#71717a" fontSize={10} tickLine={false} />
+                  <YAxis yAxisId="left" stroke="#71717a" fontSize={10} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={10} tickLine={false} />
+                  <ChartTooltip 
+                    contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '12px' }}
+                    labelStyle={{ color: '#a1a1aa', fontWeight: 'bold', fontSize: '11px' }}
+                    itemStyle={{ fontSize: '11px' }}
+                    cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                  <Bar 
+                    yAxisId="left"
+                    dataKey="Views" 
+                    fill="#eab308" 
+                    radius={[4, 4, 0, 0]} 
+                    maxBarSize={50}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="Revenue (PPL)" 
+                    stroke="#10b981" 
+                    strokeWidth={2.5} 
+                    dot={{ fill: '#10b981', r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Detailed Video Performance Breakdown */}
+          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-5 shadow-xl space-y-4" id="daily-views-performance-details">
+            <div>
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider font-mono">Recent Stream Performance Breakdown</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">Summary of streams contributing to this week's active audience traffic</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs" id="performance-breakdown-table">
+                <thead>
+                  <tr className="border-b border-zinc-900 text-zinc-400 text-[10px] uppercase font-mono tracking-wider font-bold">
+                    <th className="pb-2.5">Title</th>
+                    <th className="pb-2.5">Estimated Views (7D)</th>
+                    <th className="pb-2.5">Share of Total Traffic</th>
+                    <th className="pb-2.5">Average Watch Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900">
+                  {userVideos.slice(0, 3).map((vid, idx) => {
+                    const shares = [0.45, 0.35, 0.20];
+                    const sharePercent = shares[idx] || 0.15;
+                    const viewsContrib = Math.round(1990 * sharePercent);
+                    return (
+                      <tr key={vid.id} className="hover:bg-zinc-900/10 transition-colors">
+                        <td className="py-3 font-semibold text-zinc-300">{vid.title}</td>
+                        <td className="py-3 font-mono text-zinc-200">{viewsContrib.toLocaleString()}</td>
+                        <td className="py-3 font-mono text-zinc-400">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-zinc-900 h-1.5 rounded-full overflow-hidden border border-zinc-850">
+                              <div className="bg-gold-500 h-full rounded-full" style={{ width: `${sharePercent * 100}%` }}></div>
+                            </div>
+                            <span>{(sharePercent * 100).toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td className="py-3 font-mono text-zinc-400">4m 12s</td>
+                      </tr>
+                    );
+                  })}
+                  {userVideos.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-zinc-500 font-mono">
+                        No active streams recorded this week.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

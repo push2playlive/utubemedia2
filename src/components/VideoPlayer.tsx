@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize, Share2, Download, ListPlus, Flame, Heart, Store, ExternalLink, X, ChevronRight, Check, Gauge, Tv, Plus, Clock, BookOpen } from 'lucide-react';
-import { Video, StoreProduct, Playlist, AdCampaign, UserWallet } from '../types';
+import { Video, StoreProduct, Playlist, AdCampaign, UserWallet, getColorGradeClass } from '../types';
 
 interface VideoPlayerProps {
   video: Video;
@@ -62,6 +62,188 @@ export default function VideoPlayer({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const synthIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const isRealVideo = video.url.startsWith('blob:') || video.url.startsWith('data:video/') || video.url.includes('.mp4') || video.url.includes('.webm') || video.url.includes('.mov');
+
+  // Sync real video playback state
+  useEffect(() => {
+    if (isRealVideo && videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play().catch((err) => {
+          console.error("Playback failed:", err);
+          setIsPlaying(false);
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isPlaying, isRealVideo, video.url]);
+
+  // Sync real video settings
+  useEffect(() => {
+    if (isRealVideo && videoRef.current) {
+      videoRef.current.volume = volume;
+      videoRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted, isRealVideo]);
+
+  useEffect(() => {
+    if (isRealVideo && videoRef.current) {
+      videoRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed, isRealVideo]);
+
+  // Diagnostics for video media source integrity & MIME type inspection
+  useEffect(() => {
+    console.log(`[Media Diagnostics] Inspecting source for video ID: ${video.id}, Title: "${video.title}"`);
+    console.log(`[Media Diagnostics] URL Source: "${video.url}"`);
+    console.log(`[Media Diagnostics] Is detected as real video file: ${isRealVideo}`);
+
+    if (isRealVideo) {
+      if (video.url.startsWith('blob:')) {
+        console.log(`[Media Diagnostics] Blob URL detected. Querying Blob source integrity...`);
+        fetch(video.url)
+          .then((response) => {
+            console.log(`[Media Diagnostics] Blob request response status: ${response.status} (${response.statusText})`);
+            return response.blob();
+          })
+          .then((blob) => {
+            console.log(`[Media Diagnostics] Blob payload fetched successfully!`);
+            console.log(`[Media Diagnostics] MIME Type: "${blob.type}"`);
+            console.log(`[Media Diagnostics] Size: ${blob.size} bytes (${(blob.size / (1024 * 1024)).toFixed(2)} MB)`);
+            if (blob.size === 0) {
+              console.warn(`[Media Diagnostics] WARNING: Blob size is 0! The source file may be corrupted or empty.`);
+            } else if (!blob.type.startsWith('video/')) {
+              console.warn(`[Media Diagnostics] WARNING: MIME type "${blob.type}" is not a standard video container! This may cause playback or audio issues.`);
+            } else {
+              console.log(`[Media Diagnostics] Blob integrity verified. Player is ready for active stream playback.`);
+            }
+          })
+          .catch((err) => {
+            console.error(`[Media Diagnostics] ERROR: Failed to retrieve or resolve the blob URL source.`, err);
+          });
+      } else if (video.url.startsWith('data:')) {
+        const match = video.url.match(/^data:([^;]+);base64,/);
+        if (match) {
+          console.log(`[Media Diagnostics] Data URL source detected.`);
+          console.log(`[Media Diagnostics] Extracted MIME Type: "${match[1]}"`);
+          if (!match[1].startsWith('video/')) {
+            console.warn(`[Media Diagnostics] WARNING: Data URL MIME type "${match[1]}" is not a video file.`);
+          }
+        } else {
+          console.log(`[Media Diagnostics] Plain Data URL detected without a standard base64/MIME header.`);
+        }
+      } else {
+        console.log(`[Media Diagnostics] External HTTP/HTTPS resource URL. Cannot directly fetch blob client-side without potential CORS, but URL format suggests native playback.`);
+      }
+    } else {
+      console.log(`[Media Diagnostics] No local or physical video URL detected. Falling back to real-time Web Audio API frequency synthesiser.`);
+    }
+  }, [video, isRealVideo]);
+
+  // Track HTML5 Video Element readyState and networkState lifecycle
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !isRealVideo) return;
+
+    const getNetworkStateString = (state: number) => {
+      switch (state) {
+        case 0: return "NETWORK_EMPTY (Uninitialised)";
+        case 1: return "NETWORK_IDLE (Cached / Active, not using network)";
+        case 2: return "NETWORK_LOADING (Downloading data)";
+        case 3: return "NETWORK_NO_SOURCE (Source not found / Load failed)";
+        default: return `UNKNOWN (${state})`;
+      }
+    };
+
+    const getReadyStateString = (state: number) => {
+      switch (state) {
+        case 0: return "HAVE_NOTHING (No media metadata)";
+        case 1: return "HAVE_METADATA (Metadata loaded)";
+        case 2: return "HAVE_CURRENT_DATA (Current frame available, but stalling)";
+        case 3: return "HAVE_FUTURE_DATA (Future frames available, can start)";
+        case 4: return "HAVE_ENOUGH_DATA (Playable with high buffer)";
+        default: return `UNKNOWN (${state})`;
+      }
+    };
+
+    console.log(`[HTML5 Video Diagnostics] Attaching listeners. Initial readyState: ${getReadyStateString(el.readyState)}, networkState: ${getNetworkStateString(el.networkState)}`);
+
+    const logState = (eventName: string) => {
+      console.log(`[HTML5 Video Diagnostics] [Event: ${eventName}] readyState: ${getReadyStateString(el.readyState)} | networkState: ${getNetworkStateString(el.networkState)} | currentSec: ${el.currentTime.toFixed(2)}s`);
+    };
+
+    const handleLoadStart = () => logState("loadstart");
+    const handleLoadedMetadataEvent = () => logState("loadedmetadata");
+    const handleLoadedData = () => logState("loadeddata");
+    const handleCanPlay = () => logState("canplay");
+    const handleCanPlayThrough = () => logState("canplaythrough");
+    const handleWaiting = () => logState("waiting");
+    const handleStalled = () => logState("stalled");
+    const handleSuspend = () => logState("suspend");
+    
+    const handleError = () => {
+      const err = el.error;
+      if (err) {
+        let errType = "UNKNOWN";
+        switch (err.code) {
+          case 1: errType = "MEDIA_ERR_ABORTED (Fetch aborted)"; break;
+          case 2: errType = "MEDIA_ERR_NETWORK (Network error occurred)"; break;
+          case 3: errType = "MEDIA_ERR_DECODE (Decoding failure / Corrupt stream / Missing codec)"; break;
+          case 4: errType = "MEDIA_ERR_SRC_NOT_SUPPORTED (Format / MIME type unsupported)"; break;
+        }
+        console.error(`[HTML5 Video Diagnostics] [Event: error] Playback stopped. Error code: ${err.code} (${errType}) | Message: "${err.message || 'No custom browser details'}"`);
+      } else {
+        console.error(`[HTML5 Video Diagnostics] [Event: error] Error event fired, but video.error payload is null.`);
+      }
+    };
+
+    el.addEventListener("loadstart", handleLoadStart);
+    el.addEventListener("loadedmetadata", handleLoadedMetadataEvent);
+    el.addEventListener("loadeddata", handleLoadedData);
+    el.addEventListener("canplay", handleCanPlay);
+    el.addEventListener("canplaythrough", handleCanPlayThrough);
+    el.addEventListener("waiting", handleWaiting);
+    el.addEventListener("stalled", handleStalled);
+    el.addEventListener("suspend", handleSuspend);
+    el.addEventListener("error", handleError);
+
+    return () => {
+      el.removeEventListener("loadstart", handleLoadStart);
+      el.removeEventListener("loadedmetadata", handleLoadedMetadataEvent);
+      el.removeEventListener("loadeddata", handleLoadedData);
+      el.removeEventListener("canplay", handleCanPlay);
+      el.removeEventListener("canplaythrough", handleCanPlayThrough);
+      el.removeEventListener("waiting", handleWaiting);
+      el.removeEventListener("stalled", handleStalled);
+      el.removeEventListener("suspend", handleSuspend);
+      el.removeEventListener("error", handleError);
+    };
+  }, [video.url, isRealVideo]);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+      
+      // Randomly show an ad if ad is enabled for video
+      const next = videoRef.current.currentTime;
+      if (video.adEnabled && activeAd && Math.random() < 0.05 && next > 10 && !showAd) {
+        setShowAd(true);
+        setAdTimer(10); // 10s skip timer
+      }
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDurationSec(videoRef.current.duration || 0);
+    }
+  };
+
+  const handleVideoEnded = () => {
+    setIsPlaying(false);
+  };
+
   // Initialize AudioContext lazily
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -94,7 +276,7 @@ export default function VideoPlayer({
   // Handle simulated progress
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isPlaying) {
+    if (isPlaying && !isRealVideo) {
       interval = setInterval(() => {
         setCurrentTime((prev) => {
           if (prev >= durationSec) {
@@ -112,7 +294,7 @@ export default function VideoPlayer({
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, durationSec, playbackSpeed, video, activeAd, showAd]);
+  }, [isPlaying, durationSec, playbackSpeed, video, activeAd, showAd, isRealVideo]);
 
   // Countdown for ad close timer
   useEffect(() => {
@@ -127,7 +309,7 @@ export default function VideoPlayer({
 
   // Beautiful video ambient sound synthesis
   useEffect(() => {
-    if (isPlaying && video) {
+    if (isPlaying && video && !isRealVideo) {
       // Start/Resume Web Audio Synthesis
       try {
         getAudioContext();
@@ -649,7 +831,11 @@ export default function VideoPlayer({
     const clickX = e.clientX - rect.left;
     const width = rect.width;
     const percentage = clickX / width;
-    setCurrentTime(Math.floor(percentage * durationSec));
+    const newTime = Math.floor(percentage * durationSec);
+    setCurrentTime(newTime);
+    if (isRealVideo && videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
   };
 
   // Simulated download feature
@@ -687,11 +873,23 @@ export default function VideoPlayer({
     <div className="space-y-4" id="video-player-container">
       {/* Video Canvas Sandbox with absolute layers */}
       <div className={`relative bg-black rounded-2xl overflow-hidden group/player select-none shadow-2xl border border-zinc-900 transition-all duration-300 ${isTheater ? 'aspect-[21/9] max-h-[500px]' : 'aspect-video'}`}>
-        <canvas 
-          ref={canvasRef} 
-          onClick={() => !isGatedLocked && setIsPlaying(!isPlaying)}
-          className="w-full h-full block cursor-pointer"
-        />
+        {isRealVideo ? (
+          <video
+            ref={videoRef}
+            src={video.url}
+            onClick={() => !isGatedLocked && setIsPlaying(!isPlaying)}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onEnded={handleVideoEnded}
+            className={`w-full h-full block cursor-pointer object-contain bg-black animate-in fade-in duration-300 ${getColorGradeClass(video.colorGrade)}`}
+          />
+        ) : (
+          <canvas 
+            ref={canvasRef} 
+            onClick={() => !isGatedLocked && setIsPlaying(!isPlaying)}
+            className={`w-full h-full block cursor-pointer ${getColorGradeClass(video.colorGrade)}`}
+          />
+        )}
 
         {/* Members-Only Lock Gated Overlay Screen */}
         {isGatedLocked && (

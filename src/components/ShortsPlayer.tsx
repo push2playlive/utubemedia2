@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ThumbsUp, ThumbsDown, MessageSquare, Share2, Volume2, VolumeX, ChevronUp, ChevronDown, Check, Send, Plus, Disc } from 'lucide-react';
-import { Video, Comment } from '../types';
+import { Video, Comment, getColorGradeClass } from '../types';
 import CommentsSection from './CommentsSection';
 
 interface ShortsPlayerProps {
@@ -44,6 +44,34 @@ export default function ShortsPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
   const [newComment, setNewComment] = useState('');
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const isRealVideo = video.url.startsWith('blob:') || video.url.startsWith('data:video/') || video.url.includes('.mp4') || video.url.includes('.webm') || video.url.includes('.mov');
+
+  useEffect(() => {
+    setIsPlaying(true);
+  }, [activeIdx]);
+
+  // Sync real video playback state
+  useEffect(() => {
+    if (isRealVideo && videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play().catch((err) => {
+          console.error("Playback failed:", err);
+          setIsPlaying(false);
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isPlaying, isRealVideo, video.url]);
+
+  // Sync real video settings
+  useEffect(() => {
+    if (isRealVideo && videoRef.current) {
+      videoRef.current.muted = isMuted;
+    }
+  }, [isMuted, isRealVideo]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTime = useRef<number>(0);
@@ -108,6 +136,7 @@ export default function ShortsPlayer({
 
   // Animate canvas short looping visualizer
   useEffect(() => {
+    if (isRealVideo) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -323,11 +352,21 @@ export default function ShortsPlayer({
         onTouchEnd={handleTouchEnd}
         className="relative w-full max-w-[340px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200 select-none touch-pan-y"
       >
-        <canvas
-          ref={canvasRef}
-          onClick={() => setIsPlaying(!isPlaying)}
-          className="w-full h-full block cursor-pointer"
-        />
+        {isRealVideo ? (
+          <video
+            ref={videoRef}
+            src={video.url}
+            onClick={() => setIsPlaying(!isPlaying)}
+            loop
+            className={`w-full h-full block cursor-pointer object-cover bg-black animate-in fade-in duration-300 ${getColorGradeClass(video.colorGrade)}`}
+          />
+        ) : (
+          <canvas
+            ref={canvasRef}
+            onClick={() => setIsPlaying(!isPlaying)}
+            className={`w-full h-full block cursor-pointer ${getColorGradeClass(video.colorGrade)}`}
+          />
+        )}
 
         {/* Floating Sidebar Quick Action Rail (Like, Dislike, Comments drawer, Share, Audio) */}
         <div className="absolute right-3.5 bottom-16 flex flex-col items-center gap-5 z-20 text-white" id="shorts-action-rail">
