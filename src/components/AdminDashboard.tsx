@@ -22,6 +22,7 @@ interface AdminDashboardProps {
   onDeleteComment?: (commentId: string) => void;
   reports?: VideoReport[];
   onUpdateReport?: (updated: VideoReport) => void;
+  highlightReportId?: string;
 }
 
 export default function AdminDashboard({
@@ -37,7 +38,8 @@ export default function AdminDashboard({
   comments = [],
   onDeleteComment,
   reports = [],
-  onUpdateReport
+  onUpdateReport,
+  highlightReportId
 }: AdminDashboardProps) {
   // Console Mode Selector Switcher
   const [consoleMode, setConsoleMode] = useState<'creator' | 'moderator'>('moderator'); // default to moderator to highlight the new features!
@@ -610,11 +612,26 @@ export default function AdminDashboard({
                     <tbody className="divide-y divide-zinc-900">
                       {reports.map((rep) => {
                         const targetVid = videos.find(v => v.id === rep.videoId);
+                        const isHighlighted = rep.id === highlightReportId;
                         return (
-                          <tr key={rep.id} className="hover:bg-zinc-900/10 transition-colors">
+                          <tr 
+                            key={rep.id} 
+                            className={`transition-all duration-300 ${
+                              isHighlighted 
+                                ? 'bg-amber-500/10 border-l-2 border-l-amber-500 shadow-[inset_0_0_12px_rgba(245,158,11,0.05)] animate-pulse' 
+                                : 'hover:bg-zinc-900/10'
+                            }`}
+                          >
                             <td className="p-4 whitespace-nowrap">
                               <div className="flex flex-col gap-1">
-                                <span className="font-bold text-zinc-200">By: {rep.reporterName}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-zinc-200">By: {rep.reporterName}</span>
+                                  {isHighlighted && (
+                                    <span className="bg-amber-500 text-black text-[8px] font-mono font-extrabold px-1.5 py-0.2 rounded uppercase animate-bounce">
+                                      Linked Target
+                                    </span>
+                                  )}
+                                </div>
                                 <span className={`w-fit px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
                                   rep.status === 'pending'
                                     ? 'bg-amber-500/10 text-amber-500 border border-amber-500/15'

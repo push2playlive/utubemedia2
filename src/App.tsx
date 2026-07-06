@@ -157,6 +157,9 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showQrModalForVideo, setShowQrModalForVideo] = useState<Video | null>(null);
   const [showReportModal, setShowReportModal] = useState<Video | null>(null);
+  const [reportDraftId, setReportDraftId] = useState('');
+  const [highlightedReportId, setHighlightedReportId] = useState<string | undefined>(undefined);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [reportReason, setReportReason] = useState('Inappropriate Content');
   const [reportDetails, setReportDetails] = useState('');
   const [reportInternalNotes, setReportInternalNotes] = useState('');
@@ -223,6 +226,27 @@ export default function App() {
     localStorage.setItem('ppl_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
+  // Deep-link query parameter parser for reports
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reportId = params.get('reportId');
+    if (reportId) {
+      setHighlightedReportId(reportId);
+      setCurrentView('admin');
+      setToastMessage(`Navigated to compliance console for report: ${reportId}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  }, []);
+
+  // Manage stable report draft ID for active reporting session
+  useEffect(() => {
+    if (showReportModal) {
+      setReportDraftId(`rep_${Math.random().toString(36).substring(2, 9)}`);
+    } else {
+      setReportDraftId('');
+    }
+  }, [showReportModal]);
+
   // Handle list of subscribed channels
   const subscribedCreators = creators.filter(c => c.isSubscribed);
 
@@ -247,7 +271,7 @@ export default function App() {
     if (!showReportModal) return;
 
     const newReport: VideoReport = {
-      id: `rep_${Math.random().toString(36).substring(2, 9)}`,
+      id: reportDraftId || `rep_${Math.random().toString(36).substring(2, 9)}`,
       videoId: showReportModal.id,
       videoTitle: showReportModal.title,
       reporterName: currentUser?.name || 'AnonymousUser',
@@ -526,6 +550,23 @@ export default function App() {
     } catch (error) {
       console.error('Error generating PDF:', error);
       setToastMessage('Error exporting PDF report document.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleShareReportLink = () => {
+    if (!showReportModal || !reportDraftId) return;
+
+    try {
+      const deepLink = `${window.location.origin}${window.location.pathname}?reportId=${reportDraftId}&status=pending`;
+      navigator.clipboard.writeText(deepLink);
+      setShareLinkCopied(true);
+      setToastMessage(`Deep link copied! ID: ${reportDraftId}`);
+      setTimeout(() => setToastMessage(null), 3500);
+      setTimeout(() => setShareLinkCopied(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      setToastMessage('Error copying deep link.');
       setTimeout(() => setToastMessage(null), 3000);
     }
   };
@@ -1881,6 +1922,7 @@ export default function App() {
               onUpdateReport={(updated) => {
                 setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
               }}
+              highlightReportId={highlightedReportId}
             />
           )}
 
@@ -2354,13 +2396,32 @@ export default function App() {
               </p>
 
               <div className="flex flex-col gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadPdfReport}
-                  className="w-full py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-red-500" /> Export PDF Draft Report
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdfReport}
+                    className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-850 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-red-500" /> Export PDF Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareReportLink}
+                    className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-850 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    {shareLinkCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Link Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Share Deep Link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <div className="flex gap-3">
                   <button
                     type="button"
