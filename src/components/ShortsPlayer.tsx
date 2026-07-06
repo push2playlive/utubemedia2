@@ -323,7 +323,7 @@ export default function ShortsPlayer({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row items-center justify-center gap-6 bg-zinc-950 p-4 rounded-3xl border border-zinc-900 shadow-2xl h-[calc(100vh-100px)] relative" id="shorts-hub-container">
+    <div className="flex flex-col lg:flex-row items-center justify-center gap-6 bg-zinc-950 p-4 sm:p-6 rounded-3xl border border-zinc-900 shadow-2xl min-h-[calc(100vh-120px)] lg:h-[calc(100vh-90px)] relative" id="shorts-hub-container">
       
       {/* Scroll Chevrons Navigation (Matching the right vertical round buttons in the screenshot!) */}
       <div className="absolute right-4 md:right-8 flex flex-col gap-4 z-10">
@@ -350,7 +350,7 @@ export default function ShortsPlayer({
         ref={viewportRef}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="relative w-full max-w-[340px] aspect-[9/16] bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200 select-none touch-pan-y"
+        className="relative h-[min(74vh,800px)] max-h-full aspect-[9/16] w-auto max-w-full bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-850 flex-shrink-0 animate-in fade-in zoom-in-95 duration-200 select-none touch-pan-y"
       >
         {isRealVideo ? (
           <video

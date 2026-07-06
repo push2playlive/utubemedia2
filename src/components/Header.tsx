@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, Plus, Wallet, User, Menu, Settings, LogOut, CheckCircle, Store, Shield } from 'lucide-react';
+import { Search, Bell, Plus, Wallet, User, Menu, Settings, LogOut, CheckCircle, Store, Shield, Sparkles } from 'lucide-react';
 import { UserWallet } from '../types';
 
 interface HeaderProps {
@@ -252,6 +252,16 @@ export default function Header({
               >
                 <Store className="w-4 h-4 text-gold-400" />
                 Online Creator Stores
+              </button>
+              <button
+                onClick={() => {
+                  onNavigate('premium');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg text-left transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                Platform Premium Plan
               </button>
               <button
                 onClick={() => {

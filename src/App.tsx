@@ -14,6 +14,7 @@ import ProfileSettings from './components/ProfileSettings';
 import AuthView from './components/AuthView';
 import MusicView from './components/MusicView';
 import CreatorStudio from './components/CreatorStudio';
+import PremiumSubscriptionView from './components/PremiumSubscriptionView';
 
 // Mock Data
 import { 
@@ -145,6 +146,64 @@ export default function App() {
     hasStore: leases.some(l => l.creatorId === 'creator_braxtheog9' && l.status === 'active'),
     storeName: leases.find(l => l.creatorId === 'creator_braxtheog9')?.storeName,
     joinedDate: '2026-01-01'
+  };
+
+  // Premium subscription state
+  const [isPremiumSubscribed, setIsPremiumSubscribed] = useState<boolean>(() => {
+    return localStorage.getItem('ppl_premium_subscribed') === 'true';
+  });
+
+  const handleTogglePremiumSubscription = () => {
+    if (isPremiumSubscribed) {
+      setIsPremiumSubscribed(false);
+      localStorage.setItem('ppl_premium_subscribed', 'false');
+      
+      setWallet(prev => {
+        const newTx = {
+          id: `tx_prem_cancel_${Math.random().toString(36).substring(2, 9)}`,
+          type: 'subscription' as const,
+          amount: 0,
+          currency: 'PPL' as const,
+          description: "Cancelled Platform Premium subscription plan",
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          sender: prev.address,
+          recipient: '0xPLATFORM'
+        };
+        return {
+          ...prev,
+          transactions: [newTx, ...prev.transactions]
+        };
+      });
+      alert("Platform Premium subscription cancelled successfully.");
+    } else {
+      if (wallet.balancePPL < 99) {
+        alert("Insufficient PPL platform balance to subscribe to Premium. Please swap some ETH or earn tokens first!");
+        return;
+      }
+
+      setWallet(prev => {
+        const updatedPPL = prev.balancePPL - 99;
+        const newTx = {
+          id: `tx_prem_sub_${Math.random().toString(36).substring(2, 9)}`,
+          type: 'subscription' as const,
+          amount: 99,
+          currency: 'PPL' as const,
+          description: "Subscribed to Platform Premium Plan (Ad-Free & UHD Access)",
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          sender: prev.address,
+          recipient: '0xPLATFORM'
+        };
+        return {
+          ...prev,
+          balancePPL: updatedPPL,
+          transactions: [newTx, ...prev.transactions]
+        };
+      });
+
+      setIsPremiumSubscribed(true);
+      localStorage.setItem('ppl_premium_subscribed', 'true');
+      alert("🎉 Welcome to Platform Premium! All pre-roll and stream-side ads are now 100% disabled!");
+    }
   };
 
   // UI state
@@ -1279,6 +1338,7 @@ export default function App() {
               subscribedCreators={subscribedCreators} 
               onClose={() => setMobileMenuOpen(false)}
               isMobile={true}
+              historyVideos={getPlaylistVideos('pl_history')}
             />
           </div>
         </div>
@@ -1291,6 +1351,7 @@ export default function App() {
           onNavigate={handleNavigate} 
           subscribedCreators={subscribedCreators} 
           isCollapsed={sidebarCollapsed}
+          historyVideos={getPlaylistVideos('pl_history')}
         />
 
         {/* Central Scrolling Feed */}
@@ -1545,6 +1606,7 @@ export default function App() {
                     isTheatreMode={isTheatreMode}
                     onToggleTheatreMode={() => setIsTheatreMode(!isTheatreMode)}
                     onUpdateVideoDescription={handleUpdateVideoDescription}
+                    disableAds={currentUser?.isCreator || isPremiumSubscribed}
                   />
                 </div>
               )}
@@ -1569,6 +1631,7 @@ export default function App() {
                       isTheatreMode={isTheatreMode}
                       onToggleTheatreMode={() => setIsTheatreMode(!isTheatreMode)}
                       onUpdateVideoDescription={handleUpdateVideoDescription}
+                      disableAds={currentUser?.isCreator || isPremiumSubscribed}
                     />
                   )}
                   
@@ -1907,6 +1970,16 @@ export default function App() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* PLATFORM PREMIUM SUBSCRIPTION PASS */}
+          {currentView === 'premium' && (
+            <PremiumSubscriptionView
+              wallet={wallet}
+              isPremium={isPremiumSubscribed}
+              onToggleSubscription={handleTogglePremiumSubscription}
+              isAdmin={currentUser?.isCreator || false}
+            />
           )}
 
           {/* CRYPTOGRAPHIC WALLET CONTROLS */}
@@ -2658,6 +2731,11 @@ export default function App() {
   function getPlaylistVideos(playlistId: string): Video[] {
     const pl = playlists.find(p => p.id === playlistId);
     if (!pl) return [];
+    if (playlistId === 'pl_history') {
+      return pl.videoIds
+        .map(id => videos.find(v => v.id === id))
+        .filter((v): v is Video => !!v);
+    }
     return videos.filter(v => pl.videoIds.includes(v.id));
   }
 

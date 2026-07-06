@@ -1,5 +1,5 @@
-import { Home, Flame, Users, Clock, ThumbsUp, Wallet, Store, BarChart3, Settings, ShieldAlert, Library, BookOpen, Music, History } from 'lucide-react';
-import { Creator } from '../types';
+import { Home, Flame, Users, Clock, ThumbsUp, Wallet, Store, BarChart3, Settings, ShieldAlert, Library, BookOpen, Music, History, Sparkles } from 'lucide-react';
+import { Creator, Video } from '../types';
 
 interface NavigationProps {
   currentView: string;
@@ -8,9 +8,10 @@ interface NavigationProps {
   onClose?: () => void;
   isMobile?: boolean;
   isCollapsed?: boolean;
+  historyVideos?: Video[];
 }
 
-export default function Navigation({ currentView, onNavigate, subscribedCreators, onClose, isMobile, isCollapsed }: NavigationProps) {
+export default function Navigation({ currentView, onNavigate, subscribedCreators, onClose, isMobile, isCollapsed, historyVideos }: NavigationProps) {
   // Navigation categories
   const mainNav = [
     { id: 'home', label: 'Home', icon: Home },
@@ -26,6 +27,7 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
   ];
 
   const ecosystemNav = [
+    { id: 'premium', label: 'Platform Premium', icon: Sparkles },
     { id: 'wallet', label: 'Wallet & Crypto', icon: Wallet },
     { id: 'store', label: 'Online Store', icon: Store },
     { id: 'advertising', label: 'Advertisers Lab', icon: BookOpen },
@@ -76,21 +78,49 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onNavigate(item.id);
-                  onClose?.();
-                }}
-                className={`w-full flex items-center gap-4 px-3 py-2 text-sm rounded-lg transition-all text-left font-medium cursor-pointer ${
-                  isActive 
-                    ? 'bg-zinc-900 text-gold-400 font-semibold border-l-2 border-gold-500 rounded-l-none pl-2.5' 
-                    : 'hover:bg-zinc-900 hover:text-white text-zinc-400'
-                }`}
-              >
-                <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-gold-500' : ''}`} />
-                <span>{item.label}</span>
-              </button>
+              <div key={item.id} className="space-y-1">
+                <button
+                  onClick={() => {
+                    onNavigate(item.id);
+                    onClose?.();
+                  }}
+                  className={`w-full flex items-center gap-4 px-3 py-2 text-sm rounded-lg transition-all text-left font-medium cursor-pointer ${
+                    isActive 
+                      ? 'bg-zinc-900 text-gold-400 font-semibold border-l-2 border-gold-500 rounded-l-none pl-2.5' 
+                      : 'hover:bg-zinc-900 hover:text-white text-zinc-400'
+                  }`}
+                >
+                  <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-gold-500' : ''}`} />
+                  <span>{item.label}</span>
+                </button>
+
+                {item.id === 'history' && historyVideos && historyVideos.length > 0 && !isCollapsed && (
+                  <div className="pl-8 pr-2 pt-1 pb-1 space-y-1.5 border-l border-zinc-900 ml-5 animate-in slide-in-from-top-1 duration-150">
+                    <div className="text-[9px] text-zinc-500 font-mono font-semibold tracking-wider mb-1 uppercase">Recently Played</div>
+                    {historyVideos.slice(0, 4).map((vid) => (
+                      <button
+                        key={vid.id}
+                        onClick={() => {
+                          onNavigate('video-detail', { video: vid });
+                          onClose?.();
+                        }}
+                        className="w-full flex items-center gap-2 text-left group/hist text-zinc-400 hover:text-white cursor-pointer transition-all"
+                        title={vid.title}
+                      >
+                        <div className="relative w-10 h-6 rounded overflow-hidden flex-shrink-0 bg-zinc-900 border border-zinc-850">
+                          <img 
+                            src={vid.thumbnail} 
+                            alt="" 
+                            className="w-full h-full object-cover group-hover/hist:scale-105 transition-transform"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <span className="text-[11px] font-medium truncate flex-1 leading-tight">{vid.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX, Maximize, Share2, Download, ListPlus, Flame, Heart, Store, ExternalLink, X, ChevronRight, Check, Gauge, Tv, Plus, Clock, BookOpen } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Share2, Download, ListPlus, Flame, Heart, Store, ExternalLink, X, ChevronRight, Check, Gauge, Tv, Plus, Clock, BookOpen, Repeat, Activity } from 'lucide-react';
 import { Video, StoreProduct, Playlist, AdCampaign, UserWallet, getColorGradeClass } from '../types';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LineChart, Line } from 'recharts';
 
 interface VideoPlayerProps {
   video: Video;
@@ -18,6 +19,7 @@ interface VideoPlayerProps {
   isTheatreMode?: boolean;
   onToggleTheatreMode?: () => void;
   onUpdateVideoDescription?: (videoId: string, newDescription: string) => void;
+  disableAds?: boolean;
 }
 
 export default function VideoPlayer({
@@ -35,7 +37,8 @@ export default function VideoPlayer({
   onSubscribe,
   isTheatreMode = false,
   onToggleTheatreMode,
-  onUpdateVideoDescription
+  onUpdateVideoDescription,
+  disableAds = false
 }: VideoPlayerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -52,8 +55,65 @@ export default function VideoPlayer({
   const [adTimer, setAdTimer] = useState(0);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
+  // Auto-loop and quality stream resolution states
+  const [isLoopEnabled, setIsLoopEnabled] = useState(false);
+  const [videoQuality, setVideoQuality] = useState<string>('1080');
+  const [qualityToast, setQualityToast] = useState<string | null>(null);
+  
+  // Real-time Network & Buffer Health Diagnostics states
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [isCongested, setIsCongested] = useState(false);
+  const [diagnosticsData, setDiagnosticsData] = useState({
+    bitrate: 8500, // kbps
+    droppedFrames: 0,
+    bufferLength: 12.4, // seconds
+    latency: 14, // ms (render latency)
+    latencyHTTP: 42, // ms (HTTP network chunk latency)
+    connectionSpeed: 48.2, // Mbps (available client bandwidth)
+    audioSampleRate: 48000, // Hz
+    playbackEngine: 'Direct Media Source API'
+  });
+
+  const [diagnosticsHistory, setDiagnosticsHistory] = useState<{
+    time: string;
+    buffer: number;
+    dropped: number;
+    bitrate: number;
+  }[]>(() => {
+    const data = [];
+    let dFrames = 0;
+    for (let i = 14; i >= 0; i--) {
+      const secAgo = i;
+      const targetBitrate = 8500;
+      const bitrate = Math.max(200, Math.floor(targetBitrate + (Math.random() * 300 - 150)));
+      const buffer = Number((8.0 + Math.random() * 4).toFixed(1));
+      dFrames += (Math.random() < 0.08 ? 1 : 0);
+      data.push({
+        time: `-${secAgo}s`,
+        buffer,
+        dropped: dFrames,
+        bitrate
+      });
+    }
+    return data;
+  });
+
+  useEffect(() => {
+    let label = '';
+    if (videoQuality === '360') label = '360p (Standard Definition / Low Quality)';
+    else if (videoQuality === '720') label = '720p (High Definition / Medium Quality)';
+    else if (videoQuality === '1080') label = '1080p (Full High Definition / High Quality)';
+    else if (videoQuality === 'cinema_360') label = 'Cinema Long Play 360 (SD Cinematic Wide)';
+
+    if (label) {
+      setQualityToast(label);
+      const t = setTimeout(() => setQualityToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [videoQuality]);
+
   // Chapters & Description tab state
-  const [descriptionTab, setDescriptionTab] = useState<'info' | 'chapters'>('info');
+  const [descriptionTab, setDescriptionTab] = useState<'info' | 'chapters' | 'diagnostics'>('info');
   const [newChapterTime, setNewChapterTime] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [chapterError, setChapterError] = useState('');
@@ -64,6 +124,79 @@ export default function VideoPlayer({
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isRealVideo = video.url.startsWith('blob:') || video.url.startsWith('data:video/') || video.url.includes('.mp4') || video.url.includes('.webm') || video.url.includes('.mov');
+
+  // Telemetry updates
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isPlaying) {
+      timer = setInterval(() => {
+        let liveBitrate = 8500;
+        let liveBuffer = 12.4;
+        let liveDropped = 0;
+
+        setDiagnosticsData(prev => {
+          let targetBitrate = 8500;
+          if (videoQuality === '360') targetBitrate = 1450;
+          else if (videoQuality === '720') targetBitrate = 4200;
+          else if (videoQuality === 'cinema_360') targetBitrate = 1200;
+          
+          if (isCongested) {
+            targetBitrate = 350;
+          }
+          const bitrate = Math.max(120, Math.floor(targetBitrate + (Math.random() * 200 - 100)));
+          liveBitrate = bitrate;
+
+          let bufferLength = prev.bufferLength;
+          if (isCongested) {
+            bufferLength = Math.max(0.6, prev.bufferLength - (Math.random() * 1.8 + 0.4));
+          } else {
+            bufferLength = prev.bufferLength + (Math.random() * 1.4 - 0.7);
+            if (bufferLength < 4.0) bufferLength = 4.3;
+            if (bufferLength > 15.0) bufferLength = 14.1;
+          }
+          liveBuffer = bufferLength;
+
+          const droppedFrames = prev.droppedFrames + (isCongested ? Math.floor(Math.random() * 4 + 1) : (Math.random() < 0.08 ? 1 : 0));
+          liveDropped = droppedFrames;
+
+          const latency = isCongested ? Math.max(25, Math.floor(40 + Math.random() * 12)) : Math.max(2, Math.floor(12 + (Math.random() * 6 - 3)));
+          const latencyHTTP = isCongested ? Math.max(180, Math.floor(200 + Math.random() * 70)) : Math.max(10, Math.floor(45 + (Math.random() * 14 - 7)));
+          const connectionSpeed = isCongested ? Math.max(0.3, Number((0.6 + Math.random() * 0.4).toFixed(2))) : Math.max(5, Number((46.5 + (Math.random() * 4 - 2)).toFixed(1)));
+
+          const audioSampleRate = isRealVideo ? 44100 : 48000;
+          const playbackEngine = isRealVideo ? 'HTML5 Native MediaSource' : 'Canvas Render Engine (WebGL)';
+
+          return {
+            bitrate,
+            droppedFrames,
+            bufferLength,
+            latency,
+            latencyHTTP,
+            connectionSpeed,
+            audioSampleRate,
+            playbackEngine
+          };
+        });
+
+        setDiagnosticsHistory(hPrev => {
+          const nextPoint = {
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            buffer: Number(liveBuffer.toFixed(1)),
+            dropped: liveDropped,
+            bitrate: liveBitrate
+          };
+          const updated = [...hPrev, nextPoint];
+          if (updated.length > 20) {
+            return updated.slice(updated.length - 20);
+          }
+          return updated;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isPlaying, videoQuality, isRealVideo, isCongested]);
 
   // Sync real video playback state
   useEffect(() => {
@@ -225,9 +358,9 @@ export default function VideoPlayer({
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
       
-      // Randomly show an ad if ad is enabled for video
+      // Randomly show an ad if ad is enabled for video and ads are not disabled
       const next = videoRef.current.currentTime;
-      if (video.adEnabled && activeAd && Math.random() < 0.05 && next > 10 && !showAd) {
+      if (!disableAds && video.adEnabled && activeAd && Math.random() < 0.05 && next > 10 && !showAd) {
         setShowAd(true);
         setAdTimer(10); // 10s skip timer
       }
@@ -241,7 +374,15 @@ export default function VideoPlayer({
   };
 
   const handleVideoEnded = () => {
-    setIsPlaying(false);
+    if (isLoopEnabled) {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(err => console.log("Loop playback failed:", err));
+      }
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+    }
   };
 
   // Initialize AudioContext lazily
@@ -280,12 +421,15 @@ export default function VideoPlayer({
       interval = setInterval(() => {
         setCurrentTime((prev) => {
           if (prev >= durationSec) {
+            if (isLoopEnabled) {
+              return 0; // loops back to start
+            }
             setIsPlaying(false);
             return durationSec;
           }
           const next = prev + playbackSpeed;
-          // Randomly show an ad if ad is enabled for video
-          if (video.adEnabled && activeAd && Math.random() < 0.05 && next > 10 && !showAd) {
+          // Randomly show an ad if ad is enabled for video and ads are not disabled
+          if (!disableAds && video.adEnabled && activeAd && Math.random() < 0.05 && next > 10 && !showAd) {
             setShowAd(true);
             setAdTimer(10); // 10s skip timer
           }
@@ -294,7 +438,7 @@ export default function VideoPlayer({
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, durationSec, playbackSpeed, video, activeAd, showAd, isRealVideo]);
+  }, [isPlaying, durationSec, playbackSpeed, video, activeAd, showAd, isRealVideo, isLoopEnabled, disableAds]);
 
   // Countdown for ad close timer
   useEffect(() => {
@@ -867,6 +1011,16 @@ export default function VideoPlayer({
     setShowShareModal(false);
   };
 
+  const getQualityFilterClass = (q: string) => {
+    if (q === '360' || q === 'cinema_360') {
+      return 'blur-[0.5px] contrast-95';
+    }
+    if (q === '720') {
+      return 'contrast-98';
+    }
+    return ''; // 1080p is pristine
+  };
+
   const isGatedLocked = video.subscriptionGated && !video.creator.isSubscribed;
 
   return (
@@ -881,14 +1035,101 @@ export default function VideoPlayer({
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onEnded={handleVideoEnded}
-            className={`w-full h-full block cursor-pointer object-contain bg-black animate-in fade-in duration-300 ${getColorGradeClass(video.colorGrade)}`}
+            className={`w-full h-full block cursor-pointer object-contain bg-black animate-in fade-in duration-300 ${getColorGradeClass(video.colorGrade)} ${getQualityFilterClass(videoQuality)}`}
           />
         ) : (
           <canvas 
             ref={canvasRef} 
             onClick={() => !isGatedLocked && setIsPlaying(!isPlaying)}
-            className={`w-full h-full block cursor-pointer ${getColorGradeClass(video.colorGrade)}`}
+            className={`w-full h-full block cursor-pointer ${getColorGradeClass(video.colorGrade)} ${getQualityFilterClass(videoQuality)}`}
           />
+        )}
+
+        {/* Cinema Long Play letterboxing */}
+        {videoQuality === 'cinema_360' && (
+          <>
+            <div className="absolute top-0 left-0 right-0 h-8 bg-[#020203] z-10 pointer-events-none transition-all duration-300 border-b border-zinc-950 shadow-md" />
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-[#020203] z-10 pointer-events-none transition-all duration-300 border-t border-zinc-950 shadow-md" />
+          </>
+        )}
+
+        {/* Quality feedback toast overlay */}
+        {qualityToast && (
+          <div className="absolute top-4 left-4 bg-black/90 border border-gold-500/30 text-gold-400 text-[10px] font-bold font-mono px-3 py-1.5 rounded-lg shadow-2xl backdrop-blur-sm z-30 animate-in fade-in slide-in-from-top-1 duration-200 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gold-500 animate-ping"></span>
+            <span>📽️ Stream quality: {qualityToast}</span>
+          </div>
+        )}
+
+        {/* Streaming Diagnostics Overlay (Stats for Nerds) */}
+        {showDiagnostics && (
+          <div className="absolute top-4 right-4 bg-black/90 border border-zinc-800 text-zinc-300 text-[10px] font-mono p-4 rounded-xl shadow-2xl backdrop-blur-md z-30 max-w-xs w-64 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200" id="video-diagnostics-overlay">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-1.5">
+              <span className="text-zinc-100 font-bold tracking-wider flex items-center gap-1.5 uppercase text-[9px]"><Activity className="w-3.5 h-3.5 text-red-500 animate-pulse" /> Stream Telemetry</span>
+              <button 
+                onClick={() => setShowDiagnostics(false)}
+                className="text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            
+            <div className="space-y-1.5 text-[9px]">
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Video ID / Content:</span>
+                <span className="text-zinc-300 truncate max-w-[130px]">{video.id}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Stream Quality:</span>
+                <span className="text-gold-400 font-bold">{videoQuality === 'cinema_360' ? 'Cinema Long Play' : `${videoQuality}p`}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Connection Speed:</span>
+                <span className="text-emerald-400 font-bold">{diagnosticsData.connectionSpeed} Mbps</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Current Bitrate:</span>
+                <span className="text-zinc-350">{diagnosticsData.bitrate} kbps</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Dropped Frames:</span>
+                <span className="text-red-400 font-semibold">{diagnosticsData.droppedFrames}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Playback Engine:</span>
+                <span className="text-zinc-400 font-semibold">{diagnosticsData.playbackEngine}</span>
+              </div>
+              
+              <div className="space-y-1 pt-1.5 border-t border-zinc-900">
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Buffer Length:</span>
+                  <span className="text-zinc-300">{diagnosticsData.bufferLength.toFixed(1)}s</span>
+                </div>
+                {/* Buffer Health Visual Bar */}
+                <div className="w-full h-1 bg-zinc-900 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 ${
+                      diagnosticsData.bufferLength > 10 ? 'bg-emerald-500' : diagnosticsData.bufferLength > 6 ? 'bg-amber-500' : 'bg-red-500 animate-pulse'
+                    }`}
+                    style={{ width: `${Math.min(100, (diagnosticsData.bufferLength / 15) * 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-1 border-t border-zinc-900/50">
+                <span className="text-zinc-500">Decoder Latency:</span>
+                <span className="text-zinc-400">{diagnosticsData.latency} ms</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Network RTT:</span>
+                <span className="text-zinc-400">{diagnosticsData.latencyHTTP} ms</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-500">Audio Sample Rate:</span>
+                <span className="text-zinc-400">{diagnosticsData.audioSampleRate} Hz</span>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Members-Only Lock Gated Overlay Screen */}
@@ -1145,6 +1386,56 @@ export default function VideoPlayer({
             </select>
           </div>
 
+          {/* Diagnostics Stats Toggle */}
+          <button
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className={`p-1.5 rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
+              showDiagnostics
+                ? 'bg-red-500/15 border-red-500/40 text-red-400 font-bold'
+                : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Toggle Streaming Diagnostics (Stats for Nerds)"
+            id="video-diagnostics-toggle"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-bold hidden sm:inline">
+              Stats: {showDiagnostics ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
+          {/* Auto-loop Toggle */}
+          <button
+            onClick={() => setIsLoopEnabled(!isLoopEnabled)}
+            className={`p-1.5 rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
+              isLoopEnabled
+                ? 'bg-gold-500/15 border-gold-500/40 text-gold-400'
+                : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Toggle Auto-Loop"
+            id="video-autoloop-toggle"
+          >
+            <Repeat className="w-3.5 h-3.5 text-gold-500" />
+            <span className="text-[10px] font-bold hidden sm:inline">
+              Loop: {isLoopEnabled ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
+          {/* Quality/Resolution dropdown */}
+          <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-900 rounded-lg px-2 py-1" id="quality-selector-container">
+            <span className="text-[10px] font-mono font-bold text-zinc-400">Quality</span>
+            <select
+              value={videoQuality}
+              onChange={(e) => setVideoQuality(e.target.value)}
+              className="bg-transparent text-[10px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer border-none p-0 pr-1 select-none"
+              title="Stream Resolution"
+            >
+              <option value="360" className="bg-zinc-900 text-zinc-300">360p (SD)</option>
+              <option value="720" className="bg-zinc-900 text-zinc-300">720p (HD)</option>
+              <option value="1080" className="bg-zinc-900 text-zinc-300">1080p (FHD)</option>
+              <option value="cinema_360" className="bg-zinc-900 text-gold-400">Cinema 360p</option>
+            </select>
+          </div>
+
           {/* Theatre Mode Toggle */}
           {onToggleTheatreMode && (
             <button
@@ -1341,6 +1632,16 @@ export default function VideoPlayer({
               >
                 Chapters <span className="text-[10px] bg-zinc-950 px-1.5 py-0.5 rounded-full border border-zinc-850 font-semibold">{chapters.length}</span>
               </button>
+              <button
+                onClick={() => setDescriptionTab('diagnostics')}
+                className={`text-xs font-bold uppercase tracking-wider font-mono pb-1 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  descriptionTab === 'diagnostics'
+                    ? 'text-gold-500 border-gold-500'
+                    : 'text-zinc-500 border-transparent hover:text-zinc-300'
+                }`}
+              >
+                <Activity className="w-3 h-3 text-gold-400" /> Advanced Diagnostics
+              </button>
             </div>
             
             <div className="flex gap-3 text-[10px] font-mono font-bold text-zinc-450">
@@ -1495,6 +1796,203 @@ export default function VideoPlayer({
                   </div>
                 </div>
               </form>
+            </div>
+          )}
+
+          {descriptionTab === 'diagnostics' && (
+            <div className="space-y-4 pt-1 animate-in fade-in duration-150 text-left animate-in fade-in duration-200" id="advanced-diagnostics-panel">
+              {/* Header section with interactive throttle control */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950 p-4 rounded-xl border border-zinc-900">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h4 className="text-xs font-bold text-zinc-100 uppercase tracking-wider font-mono">
+                      Real-time Advanced Diagnostics
+                    </h4>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">
+                    Live telemetry stream from client-side WebGL Canvas rendering pipeline and MediaSource API decoders.
+                  </p>
+                </div>
+                
+                {/* Simulated Network Congestion Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsCongested(!isCongested)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isCongested
+                      ? 'bg-red-500/10 text-red-400 border border-red-500/30 shadow-md shadow-red-500/5 hover:bg-red-500/20'
+                      : 'bg-zinc-900 hover:bg-zinc-850 text-zinc-300 border border-zinc-800'
+                  }`}
+                  title="Simulate network issues and quality adaptations"
+                >
+                  <Gauge className={`w-3.5 h-3.5 ${isCongested ? 'animate-spin' : ''}`} />
+                  <span>{isCongested ? 'Throttled (Congested)' : 'Induce Congestion'}</span>
+                </button>
+              </div>
+
+              {/* Congestion warning banner */}
+              {isCongested && (
+                <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex items-start gap-2.5 text-red-400 animate-in slide-in-from-top-2 duration-200">
+                  <span className="text-base mt-0.5">⚠️</span>
+                  <div className="space-y-0.5">
+                    <p className="text-[11px] font-bold">SIMULATED NETWORK CONGESTION ACTIVE</p>
+                    <p className="text-[10px] leading-relaxed text-red-400/80">
+                      Bandwidth collapsed to &lt;1.0 Mbps. Frame droppage is spiking and buffer length is falling. The streaming engine has dropped connection speed and auto-adjusted playback stream to avoid freezing.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Streaming Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-900/60">
+                  <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-wider">Bitrate</span>
+                  <p className="text-sm font-bold text-zinc-200 font-mono mt-0.5">
+                    {diagnosticsData.bitrate.toLocaleString()} <span className="text-[10px] text-zinc-500 font-normal">kbps</span>
+                  </p>
+                </div>
+                <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-900/60">
+                  <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-wider">Buffer Length</span>
+                  <p className="text-sm font-bold text-zinc-200 font-mono mt-0.5">
+                    {diagnosticsData.bufferLength.toFixed(1)} <span className="text-[10px] text-zinc-500 font-normal">seconds</span>
+                  </p>
+                </div>
+                <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-900/60">
+                  <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-wider">Dropped Frames</span>
+                  <p className="text-sm font-bold text-red-400 font-mono mt-0.5">
+                    {diagnosticsData.droppedFrames} <span className="text-[10px] text-zinc-500 font-normal">frames</span>
+                  </p>
+                </div>
+                <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-900/60">
+                  <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-wider">RTT Latency</span>
+                  <p className="text-sm font-bold text-zinc-200 font-mono mt-0.5">
+                    {diagnosticsData.latency} <span className="text-[10px] text-zinc-500 font-normal">ms</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* RECHARTS REAL-TIME STREAMING TELEMETRY CHART */}
+              <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-900 space-y-2">
+                <div className="flex items-center justify-between border-b border-zinc-900/60 pb-2">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Historical Telemetry Stream</span>
+                  <span className="text-[9px] font-mono text-zinc-600">Updating 1s intervals</span>
+                </div>
+
+                <div className="h-56 w-full mt-2" id="recharts-diagnostics-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={diagnosticsHistory}
+                      margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorBitrate" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorBuffer" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorDropped" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f1f23" vertical={false} />
+                      <XAxis 
+                        dataKey="time" 
+                        stroke="#71717a" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        axisLine={false}
+                      />
+                      <YAxis 
+                        yAxisId="left"
+                        stroke="#f59e0b" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        axisLine={false}
+                        domain={[0, 'auto']}
+                        label={{ value: 'Bitrate (kbps)', angle: -90, position: 'insideLeft', style: { fill: '#71717a', fontSize: '8px' } }}
+                      />
+                      <YAxis 
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="#10b981" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        axisLine={false}
+                        domain={[0, 'auto']}
+                        label={{ value: 'Buffer / Dropped', angle: 90, position: 'insideRight', style: { fill: '#71717a', fontSize: '8px' } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#09090b', 
+                          borderColor: '#27272a', 
+                          borderRadius: '8px',
+                          fontSize: '10px',
+                          fontFamily: 'monospace'
+                        }}
+                      />
+                      <Legend 
+                        verticalAlign="top" 
+                        height={24} 
+                        iconType="circle" 
+                        iconSize={6}
+                        wrapperStyle={{ fontSize: '9px', fontFamily: 'monospace' }}
+                      />
+                      <Area 
+                        yAxisId="left"
+                        type="monotone" 
+                        dataKey="bitrate" 
+                        name="Bitrate (kbps)"
+                        stroke="#f59e0b" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorBitrate)" 
+                        dot={false}
+                      />
+                      <Area 
+                        yAxisId="right"
+                        type="monotone" 
+                        dataKey="buffer" 
+                        name="Buffer Health (s)"
+                        stroke="#10b981" 
+                        strokeWidth={1.5}
+                        fillOpacity={1} 
+                        fill="url(#colorBuffer)" 
+                        dot={false}
+                      />
+                      <Area 
+                        yAxisId="right"
+                        type="monotone" 
+                        dataKey="dropped" 
+                        name="Dropped Frames"
+                        stroke="#ef4444" 
+                        strokeWidth={1.5}
+                        fillOpacity={1} 
+                        fill="url(#colorDropped)" 
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Technical meta info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-950 p-3.5 rounded-xl border border-zinc-900 text-[10px] font-mono text-zinc-450 leading-relaxed">
+                <div className="space-y-1">
+                  <p><span className="text-zinc-550 font-semibold">ENGINE:</span> {diagnosticsData.playbackEngine}</p>
+                  <p><span className="text-zinc-550 font-semibold">SAMPLING:</span> {diagnosticsData.audioSampleRate} Hz (Float32 PCM Stereo)</p>
+                  <p><span className="text-zinc-550 font-semibold">DECODER RTT:</span> {diagnosticsData.latency}ms</p>
+                </div>
+                <div className="space-y-1 sm:border-l sm:border-zinc-900 sm:pl-4">
+                  <p><span className="text-zinc-550 font-semibold">CLIENT SPEED:</span> {diagnosticsData.connectionSpeed} Mbps</p>
+                  <p><span className="text-zinc-550 font-semibold">NETWORK LATENCY:</span> {diagnosticsData.latencyHTTP}ms</p>
+                  <p><span className="text-zinc-550 font-semibold">DECODING QUALITY:</span> {isCongested ? 'Low-Latency Fallback' : 'Excellent (No Jitter)'}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

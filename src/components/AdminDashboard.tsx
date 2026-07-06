@@ -65,6 +65,11 @@ export default function AdminDashboard({
   // Moderator Search Filters
   const [modSearch, setModSearch] = useState('');
 
+  // Reports Filter States
+  const [reportSearch, setReportSearch] = useState('');
+  const [reportStatusFilter, setReportStatusFilter] = useState<string>('all');
+  const [reportCategoryFilter, setReportCategoryFilter] = useState<string>('all');
+
   // Member Messaging States
   const mockMembers = [
     { id: 'm_1', name: 'Faith_Walker_26', email: 'faith_walker@gmail.com', subscriptionDate: '2026-06-01', tier: 'Premium Gold' },
@@ -91,6 +96,34 @@ export default function AdminDashboard({
   // Filter content matching creatorDetails.id
   const creatorVideos = videos.filter(v => v.creator.id === creatorDetails.id);
   const creatorProducts = products.filter(p => p.creatorId === creatorDetails.id);
+
+  // Filtered reports for Moderator Hub
+  const filteredReports = reports.filter((rep) => {
+    // 1. Status Filter
+    if (reportStatusFilter !== 'all' && rep.status !== reportStatusFilter) {
+      return false;
+    }
+
+    // 2. Category/Reason Filter
+    if (reportCategoryFilter !== 'all' && rep.reason !== reportCategoryFilter) {
+      return false;
+    }
+
+    // 3. Search Filter
+    if (reportSearch.trim() !== '') {
+      const searchLower = reportSearch.toLowerCase();
+      const targetVid = videos.find(v => v.id === rep.videoId);
+      const matchesVideoTitle = targetVid?.title.toLowerCase().includes(searchLower) || rep.videoTitle?.toLowerCase().includes(searchLower) || false;
+      const matchesReporterName = rep.reporterName.toLowerCase().includes(searchLower);
+      const matchesDetails = rep.details?.toLowerCase().includes(searchLower) || false;
+      const matchesReason = rep.reason?.toLowerCase().includes(searchLower) || false;
+
+      if (!matchesVideoTitle && !matchesReporterName && !matchesDetails && !matchesReason) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   // Aggregate channel statistics
   const totalViews = creatorVideos.reduce((acc, curr) => acc + curr.views, 0);
@@ -596,6 +629,54 @@ export default function AdminDashboard({
                 </div>
               </div>
 
+              {/* Reports Filter Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#0c0c0f] border border-zinc-900 p-3 rounded-xl" id="reports-moderation-filters-bar">
+                {/* Search Term */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider block">Search Content or Reporter</label>
+                  <input
+                    type="text"
+                    placeholder="Search by title, reporter, details..."
+                    value={reportSearch}
+                    onChange={(e) => setReportSearch(e.target.value)}
+                    className="w-full bg-zinc-950 text-xs border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-200 outline-none focus:border-red-500/20"
+                  />
+                </div>
+
+                {/* Status Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider block">Filter Status</label>
+                  <select
+                    value={reportStatusFilter}
+                    onChange={(e) => setReportStatusFilter(e.target.value)}
+                    className="w-full bg-zinc-950 text-xs border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-350 outline-none focus:border-red-500/20 font-mono cursor-pointer"
+                  >
+                    <option value="all">📂 All Statuses</option>
+                    <option value="pending">🟡 Pending</option>
+                    <option value="investigating">🔵 Investigating</option>
+                    <option value="resolved">✅ Resolved</option>
+                    <option value="dismissed">⚪ Dismissed</option>
+                  </select>
+                </div>
+
+                {/* Category Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider block">Filter Category / Reason</label>
+                  <select
+                    value={reportCategoryFilter}
+                    onChange={(e) => setReportCategoryFilter(e.target.value)}
+                    className="w-full bg-zinc-950 text-xs border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-350 outline-none focus:border-red-500/20 font-mono cursor-pointer"
+                  >
+                    <option value="all">📂 All Categories</option>
+                    <option value="Inappropriate Content">🔞 Inappropriate Content</option>
+                    <option value="Violates Copyright">📝 Violates Copyright</option>
+                    <option value="Violence / Dangerous">⚠️ Violence / Dangerous</option>
+                    <option value="Hate Speech / Harassment">💬 Hate Speech / Harassment</option>
+                    <option value="Spam / Misleading">🚫 Spam / Misleading</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
@@ -610,7 +691,7 @@ export default function AdminDashboard({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-900">
-                      {reports.map((rep) => {
+                      {filteredReports.map((rep) => {
                         const targetVid = videos.find(v => v.id === rep.videoId);
                         const isHighlighted = rep.id === highlightReportId;
                         return (
@@ -810,10 +891,10 @@ export default function AdminDashboard({
                         );
                       })}
 
-                      {reports.length === 0 && (
+                      {filteredReports.length === 0 && (
                         <tr>
                           <td colSpan={6} className="text-center py-12 text-zinc-500 font-mono">
-                            No flagged reports in database ledger.
+                            No matching flagged reports found in database ledger.
                           </td>
                         </tr>
                       )}
