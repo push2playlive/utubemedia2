@@ -67,7 +67,14 @@ export default function App() {
         reason: 'Spam / Misleading',
         details: 'The title mentions Study Logs but it is just a looped black screen.',
         timestamp: '2026-07-03 18:22',
-        status: 'pending'
+        status: 'pending',
+        statusHistory: [
+          {
+            status: 'pending',
+            timestamp: '2026-07-03 18:22',
+            message: 'Report submitted by reporter and queued for review.'
+          }
+        ]
       }
     ];
   });
@@ -283,7 +290,14 @@ export default function App() {
       status: 'pending',
       evidence: reportEvidence || undefined,
       internalNotes: reportInternalNotes.trim() || undefined,
-      urgent: reportUrgent
+      urgent: reportUrgent,
+      statusHistory: [
+        {
+          status: 'pending',
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          message: 'Report submitted by reporter and queued for review.'
+        }
+      ]
     };
 
     const updatedReports = [newReport, ...reports];
@@ -2261,57 +2275,144 @@ export default function App() {
             </div>
 
             {/* Visual Progress Stepper for Report Status Lifecycle */}
-            <div className="bg-[#0c0c0f] border border-zinc-900 rounded-xl p-3.5 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">Investigation Lifecycle Tracker</span>
-                <span className="text-[8px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded">
-                  Phase 1: Active
-                </span>
-              </div>
+            {(() => {
+              const activeReport = reports.find(r => r.videoId === showReportModal.id);
+              const currentStatus = activeReport ? activeReport.status : 'pending';
               
-              <div className="relative flex items-center justify-between pt-1">
-                {/* Connecting Progress Line Background */}
-                <div className="absolute top-3.5 left-4 right-4 h-0.5 bg-zinc-850 z-0"></div>
-                {/* Connecting Progress Line Active Segment */}
-                <div className="absolute top-3.5 left-4 w-[28%] h-0.5 bg-gradient-to-r from-red-500 to-red-400 z-0"></div>
+              const getProgressWidthClass = () => {
+                if (currentStatus === 'investigating') return 'w-[50%]';
+                if (currentStatus === 'resolved' || currentStatus === 'dismissed') return 'w-full';
+                return 'w-[15%]';
+              };
 
-                {/* Step 1: Submitted */}
-                <div className="flex flex-col items-center text-center z-10 relative">
-                  <div className="w-7 h-7 rounded-full bg-red-950/50 border border-red-500 flex items-center justify-center text-[10px] font-bold text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.15)]">
-                    ✓
-                  </div>
-                  <span className="text-[10px] font-semibold text-zinc-200 mt-1 block">Submitted</span>
-                  <span className="text-[8px] font-mono text-zinc-450">Active Now</span>
-                </div>
+              const isStep2Active = currentStatus === 'investigating' || currentStatus === 'resolved' || currentStatus === 'dismissed';
+              const isStep3Active = currentStatus === 'resolved';
+              const isStep4Active = currentStatus === 'resolved' || currentStatus === 'dismissed';
 
-                {/* Step 2: Under Review */}
-                <div className="flex flex-col items-center text-center z-10 relative">
-                  <div className="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-mono font-bold text-zinc-500">
-                    2
+              return (
+                <div className="bg-[#0c0c0f] border border-zinc-900 rounded-xl p-3.5 space-y-3.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">Investigation Lifecycle Tracker</span>
+                    <span className={`text-[8px] font-mono border px-1.5 py-0.5 rounded ${
+                      currentStatus === 'pending' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                      currentStatus === 'investigating' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      currentStatus === 'resolved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                      'bg-zinc-800 text-zinc-400 border-zinc-700/30'
+                    }`}>
+                      {currentStatus === 'pending' ? 'Phase 1: Active Review' :
+                       currentStatus === 'investigating' ? 'Phase 2: Investigating' :
+                       currentStatus === 'resolved' ? 'Phase 3: Resolved (Takedown)' :
+                       'Phase 3: Dismissed'}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-medium text-zinc-400 mt-1 block">Under Review</span>
-                  <span className="text-[8px] font-mono text-zinc-550">Pending</span>
-                </div>
+                  
+                  <div className="relative flex items-center justify-between pt-1 pb-1">
+                    {/* Connecting Progress Line Background */}
+                    <div className="absolute top-3.5 left-4 right-4 h-0.5 bg-zinc-850 z-0"></div>
+                    {/* Connecting Progress Line Active Segment */}
+                    <div className={`absolute top-3.5 left-4 h-0.5 bg-gradient-to-r from-red-500 to-red-400 z-0 transition-all duration-300 ${getProgressWidthClass()}`}></div>
 
-                {/* Step 3: Action Taken */}
-                <div className="flex flex-col items-center text-center z-10 relative">
-                  <div className="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-mono font-bold text-zinc-500">
-                    3
-                  </div>
-                  <span className="text-[10px] font-medium text-zinc-400 mt-1 block">Action Taken</span>
-                  <span className="text-[8px] font-mono text-zinc-550">Pending</span>
-                </div>
+                    {/* Step 1: Submitted */}
+                    <div className="flex flex-col items-center text-center z-10 relative">
+                      <div className="w-7 h-7 rounded-full bg-red-950/50 border border-red-500 flex items-center justify-center text-[10px] font-bold text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.15)]">
+                        ✓
+                      </div>
+                      <span className="text-[10px] font-semibold text-zinc-200 mt-1 block">Submitted</span>
+                      <span className="text-[8px] font-mono text-zinc-450">Completed</span>
+                    </div>
 
-                {/* Step 4: Closed */}
-                <div className="flex flex-col items-center text-center z-10 relative">
-                  <div className="w-7 h-7 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-[10px] font-mono font-bold text-zinc-500">
-                    4
+                    {/* Step 2: Under Review */}
+                    <div className="flex flex-col items-center text-center z-10 relative">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all duration-300 ${
+                        isStep2Active 
+                          ? 'bg-red-950/50 border border-red-500 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.15)] font-bold' 
+                          : 'bg-zinc-950 border border-zinc-800 text-zinc-500'
+                      }`}>
+                        {isStep2Active ? '✓' : '2'}
+                      </div>
+                      <span className={`text-[10px] mt-1 block transition-all duration-300 ${isStep2Active ? 'font-semibold text-zinc-200' : 'font-medium text-zinc-400'}`}>
+                        {currentStatus === 'investigating' ? 'Investigating' : 'Under Review'}
+                      </span>
+                      <span className="text-[8px] font-mono text-zinc-550">
+                        {isStep2Active ? 'Completed' : 'Pending'}
+                      </span>
+                    </div>
+
+                    {/* Step 3: Action Taken */}
+                    <div className="flex flex-col items-center text-center z-10 relative">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all duration-300 ${
+                        isStep3Active 
+                          ? 'bg-red-950/50 border border-red-500 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.15)] font-bold' 
+                          : currentStatus === 'dismissed'
+                          ? 'bg-zinc-900 border border-zinc-800 text-zinc-650'
+                          : 'bg-zinc-950 border border-zinc-800 text-zinc-500'
+                      }`}>
+                        {isStep3Active ? '✓' : currentStatus === 'dismissed' ? '✕' : '3'}
+                      </div>
+                      <span className={`text-[10px] mt-1 block transition-all duration-300 ${
+                        isStep3Active ? 'font-semibold text-zinc-200' : 'font-medium text-zinc-400'
+                      }`}>
+                        {currentStatus === 'dismissed' ? 'Dismissed' : 'Action Taken'}
+                      </span>
+                      <span className="text-[8px] font-mono text-zinc-550">
+                        {isStep3Active ? 'Resolved' : currentStatus === 'dismissed' ? 'Skipped' : 'Pending'}
+                      </span>
+                    </div>
+
+                    {/* Step 4: Closed */}
+                    <div className="flex flex-col items-center text-center z-10 relative">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all duration-300 ${
+                        isStep4Active 
+                          ? 'bg-emerald-950/50 border border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)] font-bold' 
+                          : 'bg-zinc-950 border border-zinc-800 text-zinc-500'
+                      }`}>
+                        {isStep4Active ? '✓' : '4'}
+                      </div>
+                      <span className={`text-[10px] mt-1 block transition-all duration-300 ${isStep4Active ? 'font-semibold text-zinc-200' : 'font-medium text-zinc-400'}`}>
+                        Closed
+                      </span>
+                      <span className="text-[8px] font-mono text-zinc-550">
+                        {isStep4Active ? 'Finished' : 'Pending'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-medium text-zinc-400 mt-1 block">Closed</span>
-                  <span className="text-[8px] font-mono text-zinc-550">Pending</span>
+
+                  {/* Status History Logs Section */}
+                  <div className="border-t border-zinc-900/80 pt-3 space-y-2">
+                    <span className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider block">Status History Logs</span>
+                    <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
+                      {(() => {
+                        const history = activeReport?.statusHistory || [
+                          {
+                            status: 'pending' as const,
+                            timestamp: activeReport?.timestamp || new Date().toISOString().replace('T', ' ').substring(0, 16),
+                            message: 'Report submitted by reporter and queued for review.'
+                          }
+                        ];
+                        return history.map((entry, index) => {
+                          let dotColor = 'bg-amber-500';
+                          if (entry.status === 'investigating') dotColor = 'bg-blue-400';
+                          if (entry.status === 'resolved') dotColor = 'bg-emerald-400';
+                          if (entry.status === 'dismissed') dotColor = 'bg-zinc-500';
+
+                          return (
+                            <div key={index} className="flex gap-2 text-[10px] leading-relaxed items-start">
+                              <span className="text-zinc-500 font-mono flex-shrink-0 text-[9px] mt-0.5">[{entry.timestamp}]</span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-shrink-0">
+                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                              </div>
+                              <span className="text-zinc-300 font-sans">
+                                {entry.message}
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
 
             <form onSubmit={handleSubmitReport} className="space-y-4">
               <div className="space-y-1">

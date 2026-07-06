@@ -635,7 +635,9 @@ export default function AdminDashboard({
                                 <span className={`w-fit px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
                                   rep.status === 'pending'
                                     ? 'bg-amber-500/10 text-amber-500 border border-amber-500/15'
-                                    : rep.status === 'resolved'
+                                  : rep.status === 'investigating'
+                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/15'
+                                  : rep.status === 'resolved'
                                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
                                     : 'bg-zinc-800 text-zinc-400'
                                 }`}>
@@ -703,17 +705,64 @@ export default function AdminDashboard({
                               {rep.timestamp}
                             </td>
                             <td className="p-4 whitespace-nowrap text-center">
-                              {rep.status === 'pending' ? (
+                              {rep.status === 'pending' || rep.status === 'investigating' ? (
                                 <div className="flex items-center justify-center gap-1.5">
+                                  {rep.status === 'pending' && (
+                                    <button
+                                      onClick={() => {
+                                        if (onUpdateReport) {
+                                          const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                                          const currentHist = rep.statusHistory || [
+                                            {
+                                              status: 'pending',
+                                              timestamp: rep.timestamp,
+                                              message: 'Report submitted by reporter and queued for review.'
+                                            }
+                                          ];
+                                          onUpdateReport({
+                                            ...rep,
+                                            status: 'investigating',
+                                            statusHistory: [
+                                              ...currentHist,
+                                              {
+                                                status: 'investigating',
+                                                timestamp: nowTimestamp,
+                                                message: `Status updated to Investigating by Admin on ${nowTimestamp.substring(0, 10)}`
+                                              }
+                                            ]
+                                          });
+                                        }
+                                      }}
+                                      className="px-2 py-1 bg-blue-950/20 hover:bg-blue-650 text-blue-400 hover:text-white border border-blue-950 hover:border-blue-500 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
+                                    >
+                                      Investigate
+                                    </button>
+                                  )}
                                   {targetVid && (
                                     <button
                                       onClick={() => {
                                         if (confirm(`CRITICAL: Are you absolutely sure you want to permanently delete and restrict "${targetVid.title}" across the network? This will resolve the report.`)) {
                                           onDeleteVideo(targetVid.id);
                                           if (onUpdateReport) {
+                                            const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                                            const currentHist = rep.statusHistory || [
+                                              {
+                                                status: 'pending',
+                                                timestamp: rep.timestamp,
+                                                message: 'Report submitted by reporter and queued for review.'
+                                              }
+                                            ];
                                             onUpdateReport({
                                               ...rep,
-                                              status: 'resolved'
+                                              status: 'resolved',
+                                              statusHistory: [
+                                                ...currentHist,
+                                                {
+                                                  status: 'resolved',
+                                                  timestamp: nowTimestamp,
+                                                  message: `Status updated to Resolved by Admin on ${nowTimestamp.substring(0, 10)}`
+                                                }
+                                              ]
                                             });
                                           }
                                         }
@@ -726,9 +775,25 @@ export default function AdminDashboard({
                                   <button
                                     onClick={() => {
                                       if (onUpdateReport) {
+                                        const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                                        const currentHist = rep.statusHistory || [
+                                          {
+                                            status: 'pending',
+                                            timestamp: rep.timestamp,
+                                            message: 'Report submitted by reporter and queued for review.'
+                                          }
+                                        ];
                                         onUpdateReport({
                                           ...rep,
-                                          status: 'dismissed'
+                                          status: 'dismissed',
+                                          statusHistory: [
+                                            ...currentHist,
+                                            {
+                                              status: 'dismissed',
+                                              timestamp: nowTimestamp,
+                                              message: `Status updated to Dismissed by Admin on ${nowTimestamp.substring(0, 10)}`
+                                            }
+                                          ]
                                         });
                                       }
                                     }}
@@ -738,7 +803,7 @@ export default function AdminDashboard({
                                   </button>
                                 </div>
                               ) : (
-                                <span className="text-zinc-550 font-mono">Completed</span>
+                                <span className="text-zinc-550 font-mono">Completed ({rep.status})</span>
                               )}
                             </td>
                           </tr>

@@ -133,6 +133,12 @@ export interface ChannelAnalytics {
   viewsByVideo: { videoTitle: string; views: number }[];
 }
 
+export interface StatusHistoryEntry {
+  status: 'pending' | 'investigating' | 'resolved' | 'dismissed';
+  timestamp: string;
+  message: string;
+}
+
 export interface VideoReport {
   id: string;
   videoId: string;
@@ -141,8 +147,9 @@ export interface VideoReport {
   reason: string;
   details: string;
   timestamp: string;
-  status: 'pending' | 'resolved' | 'dismissed';
+  status: 'pending' | 'investigating' | 'resolved' | 'dismissed';
   evidence?: string; // Base64 snapshot image
   internalNotes?: string; // Internal/diagnostic Notes & Timestamps
   urgent?: boolean; // High Urgency marker
+  statusHistory?: StatusHistoryEntry[];
 }
