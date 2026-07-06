@@ -62,7 +62,7 @@ export default function Header({
           </div>
           <div className="flex flex-col text-left">
             <span className="text-base font-bold leading-none tracking-wide text-zinc-50 font-serif">
-              PushPlay <span className="text-gold-400 text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Studio</span>
+              Utube Media <span className="text-gold-400 text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Studio</span>
             </span>
             <span className="text-[9px] text-gold-500/70 font-mono tracking-wider leading-none mt-1">CURATED ART & CINEMA</span>
           </div>
@@ -165,7 +165,7 @@ export default function Header({
           {walletMenuOpen && (
             <div className="absolute right-0 mt-2 w-72 bg-[#0f0f12] border border-zinc-800 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50" id="wallet-menu">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3">
-                <span className="text-xs font-semibold text-zinc-400 font-serif">PushPlay Crypto Wallet</span>
+                <span className="text-xs font-semibold text-zinc-400 font-serif">Utube Media Crypto Wallet</span>
                 <span className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-gold-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span> Connected
                 </span>

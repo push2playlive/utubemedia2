@@ -74,7 +74,7 @@ export default function WalletView({ wallet, creators, onTipCreator, onSwapETHto
             <p className="text-[11px] font-mono text-zinc-400 break-all select-all">{wallet.address}</p>
           </div>
           <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-gold-500" /> Secured by PushPlay Smart Contract
+            <Shield className="w-3.5 h-3.5 text-gold-500" /> Secured by Utube Media Smart Contract
           </div>
         </div>
 

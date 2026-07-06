@@ -201,7 +201,7 @@ export default function AdminDashboard({
               <Shield className="w-5 h-5 animate-pulse" />
             </span>
             <h1 className="text-xl font-bold text-zinc-150 flex items-center gap-2">
-              <span>PushPlay Administrative Workspace</span>
+              <span>Utube Media Administrative Workspace</span>
               <span className="text-[9px] bg-red-500/20 text-red-400 font-mono px-2 py-0.5 rounded-full border border-red-500/10 uppercase tracking-widest">
                 Admin Center
               </span>

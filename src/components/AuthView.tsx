@@ -34,7 +34,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
     // Default demo account
     const defaultAccounts = [
       {
-        name: 'PushPlayUser',
+        name: 'UtubeMediaUser',
         email: 'push2playlive@gmail.com',
         password: 'password123',
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
@@ -107,7 +107,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       email: email.trim(),
       password,
       avatar: avatarUrl,
-      bio: bio.trim() || 'Welcome to my PushPlay celestial space!',
+      bio: bio.trim() || 'Welcome to my Utube Media celestial space!',
       isCreator,
     };
 
@@ -141,7 +141,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
           </div>
           <div>
             <h1 className="text-xl md:text-2xl font-black text-white font-serif tracking-wide">
-              PushPlay <span className="text-gold-400 text-xs font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Live</span>
+              Utube Media <span className="text-gold-400 text-xs font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Live</span>
             </h1>
             <p className="text-[10px] text-gold-500/80 font-mono tracking-widest uppercase mt-1">CURATED ART & CINEMA LEDGER</p>
           </div>

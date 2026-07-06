@@ -127,7 +127,7 @@ export default function App() {
     const saved = localStorage.getItem('ppl_user');
     if (saved === 'null') return null;
     return saved ? JSON.parse(saved) : {
-      name: 'PushPlayUser',
+      name: 'UtubeMediaUser',
       email: 'push2playlive@gmail.com',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       bio: 'Atmospheric video connoisseur and certified audio engineer.',
@@ -138,7 +138,7 @@ export default function App() {
   // Current creator details (maps to currentUser details if they act as creator)
   const creatorDetails: Creator = {
     id: 'creator_braxtheog9', // matches Braxtheog9 mock profile
-    name: currentUser?.name || 'PushPlayUser',
+    name: currentUser?.name || 'UtubeMediaUser',
     avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
     subscribers: 5820,
     isSubscribed: false,
@@ -389,7 +389,7 @@ export default function App() {
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
-      doc.text('PUSHPLAY CONTENT INTEGRITY & COMPLIANCE', 15, 10);
+      doc.text('UTUBE MEDIA CONTENT INTEGRITY & COMPLIANCE', 15, 10);
 
       // Report Status Header
       doc.setFont('Helvetica', 'bold');
@@ -562,11 +562,11 @@ export default function App() {
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 160);
-      doc.text('PushPlay Safety Enforcement Team • Automated Compliance Form export system.', 15, 282);
+      doc.text('Utube Media Safety Enforcement Team • Automated Compliance Form export system.', 15, 282);
       doc.text('Page 1 of 1', 180, 282);
 
       // Save PDF
-      doc.save(`PushPlay_Violation_Report_${showReportModal.id}.pdf`);
+      doc.save(`Utube_Media_Violation_Report_${showReportModal.id}.pdf`);
       setToastMessage('PDF Incident Report downloaded successfully!');
       setTimeout(() => setToastMessage(null), 3000);
     } catch (error) {
@@ -736,7 +736,7 @@ export default function App() {
         description: `Signed ${plan} Store Lease Plan: "${storeName}"`,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
         sender: '0x9a8B...884F',
-        recipient: 'PushPlay Store Lease Registry'
+        recipient: 'Utube Media Store Lease Registry'
       };
       return {
         ...prev,
@@ -770,7 +770,7 @@ export default function App() {
         description: `Funded Ad Campaign: "${newCamp.title}"`,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
         sender: '0x9a8B...884F',
-        recipient: 'PushPlay Ad Protocol'
+        recipient: 'Utube Media Ad Protocol'
       };
       return {
         ...prev,
@@ -812,7 +812,7 @@ export default function App() {
           currency: 'PPL' as const,
           description: `Monetization share for ad click on: "${selectedVideo.title}"`,
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          sender: 'PushPlay Ad Protocol',
+          sender: 'Utube Media Ad Protocol',
           recipient: selectedVideo.creator.id
         };
         return {
@@ -859,7 +859,7 @@ export default function App() {
         currency: 'PPL' as const,
         description: 'Withdrew studio earnings to personal external cold ledger',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        sender: 'PushPlay Local Ledger',
+        sender: 'Utube Media Local Ledger',
         recipient: 'External Address (0x12a3...)'
       };
       return {
@@ -1225,7 +1225,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans select-none antialiased overflow-hidden" id="pushplay-root">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans select-none antialiased overflow-hidden" id="utubemedia-root">
       {/* Universal Header */}
       <Header
         wallet={wallet}
@@ -1259,7 +1259,7 @@ export default function App() {
                     <path d="M8 5v14l11-7z" strokeWidth={2} />
                   </svg>
                 </div>
-                <span className="text-xs font-bold text-gold-400 font-mono tracking-wider uppercase">PushPlay Menu</span>
+                <span className="text-xs font-bold text-gold-400 font-mono tracking-wider uppercase">Utube Media Menu</span>
               </div>
               <button 
                 onClick={() => setMobileMenuOpen(false)}
@@ -1305,7 +1305,7 @@ export default function App() {
                 <div>
                   <h1 className="text-sm font-bold text-zinc-100 font-mono tracking-widest uppercase flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse"></span>
-                    <span>PushPlay Live Feed</span>
+                    <span>Utube Media Live Feed</span>
                   </h1>
                   <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Toggle between Extended Cinema streams and vertical Short Clips.</p>
                 </div>
@@ -1884,7 +1884,7 @@ export default function App() {
                 <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
                   <Heart className="w-5.5 h-5.5 text-red-500" /> Liked Videos Ledger
                 </h1>
-                <p className="text-xs text-zinc-500">Every stream you have appreciated on PushPlay.</p>
+                <p className="text-xs text-zinc-500">Every stream you have appreciated on Utube Media.</p>
               </div>
 
               {getPlaylistVideos('pl_liked').length === 0 ? (
@@ -2475,6 +2475,28 @@ export default function App() {
                     <Sparkles className="w-2.5 h-2.5" /> Auto-generate from comments
                   </button>
                 </div>
+                <div className="flex items-center gap-2 pb-1">
+                  <span className="text-[9px] font-mono text-zinc-500 uppercase font-bold">Quick Response:</span>
+                  <select
+                    id="quick-response-select"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const templateText = e.target.value;
+                        setReportInternalNotes(prev => {
+                          const separator = prev.trim() ? '\n' : '';
+                          return `${prev}${separator}${templateText}`;
+                        });
+                        e.target.value = '';
+                      }
+                    }}
+                    className="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-[9px] text-zinc-300 outline-none font-mono focus:border-amber-500/30 max-w-[200px]"
+                  >
+                    <option value="">Select template...</option>
+                    <option value="Evidence received">Evidence received</option>
+                    <option value="Flagged for removal">Flagged for removal</option>
+                    <option value="Under further investigation">Under further investigation</option>
+                  </select>
+                </div>
                 <textarea
                   placeholder="Enter diagnostic values, custom tags, or specific timestamps (e.g. 02:45 - violation occurs)..."
                   value={reportInternalNotes}
@@ -2571,7 +2593,7 @@ export default function App() {
               </div>
 
               <p className="text-[10px] text-zinc-500 leading-normal">
-                PushPlay moderators investigate flagged streams 24/7. Filing false or malicious reports may result in account restriction.
+                Utube Media moderators investigate flagged streams 24/7. Filing false or malicious reports may result in account restriction.
               </p>
 
               <div className="flex flex-col gap-2.5 pt-2">
