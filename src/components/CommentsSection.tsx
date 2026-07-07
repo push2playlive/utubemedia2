@@ -199,7 +199,7 @@ export default function CommentsSection({
         ) : (
           sortedComments.map((comment) => {
             const isUserComment = comment.userName === currentUser.name;
-            const canModify = isUserComment || comment.userName === 'UtubeChat'; // Allow mock comment UtubeChat to be modified too
+            const canModify = isUserComment || comment.userName === 'Push2PlayChat'; // Allow mock comment Push2PlayChat to be modified too
 
             return (
               <div 

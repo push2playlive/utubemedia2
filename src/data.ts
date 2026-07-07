@@ -42,12 +42,12 @@ export const creators: Creator[] = [
   },
   {
     id: 'creator_braxtheog9',
-    name: 'Utube Chat',
+    name: 'Push2Play Chat',
     avatar: 'https://images.unsplash.com/photo-1618519764620-7403abdbfee9?w=150', // high quality camera studio red-orange backdrop
     subscribers: 6,
     isSubscribed: false,
     hasStore: true,
-    storeName: 'Utube Chat Official Gear',
+    storeName: 'Push2Play Official Gear',
     joinedDate: '2025-06-01'
   },
   {
@@ -429,7 +429,7 @@ export const initialComments: Comment[] = [
   {
     id: 'c_utube_1',
     videoId: 'video_wisdom_1',
-    userName: 'UtubeChat',
+    userName: 'Push2PlayChat',
     userAvatar: 'pp_logo',
     text: 'the old bike',
     likes: 0,

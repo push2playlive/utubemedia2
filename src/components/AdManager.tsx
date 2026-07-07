@@ -44,7 +44,7 @@ export default function AdManager({
       title: adTitle.trim(),
       type: adType,
       mediaUrl: mediaUrl.trim() || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600',
-      targetUrl: targetUrl.trim() || 'https://utubemedia.live/sponsored',
+      targetUrl: targetUrl.trim() || 'https://push2play.live/sponsored',
       budgetTotal: budgetNum,
       status: 'active',
       costPerClick: cpcNum

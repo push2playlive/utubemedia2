@@ -51,18 +51,27 @@ export default function Header({
           className="flex items-center gap-2 text-white font-semibold tracking-tight hover:opacity-90 transition-opacity cursor-pointer group"
           id="logo-button"
         >
-          {/* Logo matches the elegant gold theme */}
-          <div className="relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 shadow-md shadow-gold-500/10 group-hover:scale-105 transition-transform">
-            <svg 
-              className="w-4 h-4 text-black fill-current translate-x-[1px]" 
-              viewBox="0 0 24 24"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
+          {/* Tactile push-button style logo with 2 outer concentric circles */}
+          <div className="relative flex items-center justify-center w-11 h-11 rounded-full border border-zinc-800/80 bg-[#07070a] shadow-inner">
+            {/* Outer circle 1 */}
+            <div className="absolute inset-1 rounded-full border border-gold-500/15 bg-zinc-950 flex items-center justify-center">
+              {/* Outer circle 2 */}
+              <div className="absolute inset-1 rounded-full border border-gold-500/25 bg-zinc-900/60 flex items-center justify-center">
+                {/* Core play button */}
+                <div className="relative flex items-center justify-center w-5.5 h-5.5 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 shadow shadow-gold-500/20 group-hover:scale-110 active:scale-95 transition-transform duration-150">
+                  <svg 
+                    className="w-2.5 h-2.5 text-black fill-current translate-x-[0.5px]" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex flex-col text-left">
             <span className="text-base font-bold leading-none tracking-wide text-zinc-50 font-serif">
-              Utube Media <span className="text-gold-400 text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Studio</span>
+              Push2Play <span className="text-gold-400 text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Studio</span>
             </span>
             <span className="text-[9px] text-gold-500/70 font-mono tracking-wider leading-none mt-1">CURATED ART & CINEMA</span>
           </div>
@@ -165,7 +174,7 @@ export default function Header({
           {walletMenuOpen && (
             <div className="absolute right-0 mt-2 w-72 bg-[#0f0f12] border border-zinc-800 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50" id="wallet-menu">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3">
-                <span className="text-xs font-semibold text-zinc-400 font-serif">Utube Media Crypto Wallet</span>
+                <span className="text-xs font-semibold text-zinc-400 font-serif">Push2Play Crypto Wallet</span>
                 <span className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-gold-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span> Connected
                 </span>

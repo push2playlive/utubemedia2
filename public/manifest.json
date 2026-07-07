@@ -1,0 +1,22 @@
+{
+  "short_name": "Push2Play",
+  "name": "Push2Play - Curated Art & Cinema",
+  "description": "A high-fidelity premium video streaming and creator ecosystem.",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1618519764620-7403abdbfee9?w=192",
+      "type": "image/jpeg",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1618519764620-7403abdbfee9?w=512",
+      "type": "image/jpeg",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "display": "standalone",
+  "orientation": "portrait"
+}

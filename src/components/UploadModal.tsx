@@ -366,7 +366,7 @@ export default function UploadModal({ isOpen, onClose, onUpload, creatorDetails,
 
           {uploadSuccess && (
             <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-medium flex items-center gap-1.5 animate-bounce">
-              <CheckCircle className="w-3.5 h-3.5" /> Video stream published successfully onto Utube Media Live index!
+              <CheckCircle className="w-3.5 h-3.5" /> Video stream published successfully onto Push2Play Live index!
             </div>
           )}
 

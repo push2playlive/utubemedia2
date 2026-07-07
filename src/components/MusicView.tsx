@@ -142,7 +142,7 @@ export default function MusicView() {
     
     // Get user info
     const savedUser = localStorage.getItem('ppl_user');
-    const user = savedUser ? JSON.parse(savedUser) : { name: 'UtubeMediaUser', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150' };
+    const user = savedUser ? JSON.parse(savedUser) : { name: 'Push2PlayUser', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150' };
 
     const newComment = {
       id: `tc_${Date.now()}`,
@@ -558,7 +558,7 @@ export default function MusicView() {
           {/* Breadcrumb / Category Metadata */}
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded bg-red-600 text-white text-[9px] font-bold tracking-widest uppercase">FEATURED RELEASE</span>
-            <span className="text-[10px] text-zinc-400 font-semibold font-mono">UTUBE MEDIA MUSIC</span>
+            <span className="text-[10px] text-zinc-400 font-semibold font-mono">PUSH2PLAY MUSIC</span>
           </div>
 
           {/* Center Info Panel & Preview List */}
@@ -767,7 +767,7 @@ export default function MusicView() {
                 <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[8px] font-extrabold tracking-widest uppercase border border-amber-500/20">SPOTLIGHT</span>
                 <h3 className="text-lg font-black text-white">Artist of the Week</h3>
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Discover Olivia Dean's mesmerizing vocal layers. Fresh off her latest US arena tour, she sits down inside Utube Media's Cinema studio to breakdown her songwriting craft.
+                  Discover Olivia Dean's mesmerizing vocal layers. Fresh off her latest US arena tour, she sits down inside Push2Play's Cinema studio to breakdown her songwriting craft.
                 </p>
                 <div className="pt-2">
                   <button 
@@ -789,7 +789,7 @@ export default function MusicView() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-4 text-left">
                   <span className="text-[10px] text-zinc-400 font-mono">Live Broadcast Recording</span>
-                  <h4 className="text-sm font-bold text-white">Olivia Dean - Live Acoustic Session (Utube Media Premium)</h4>
+                  <h4 className="text-sm font-bold text-white">Olivia Dean - Live Acoustic Session (Push2Play Premium)</h4>
                 </div>
               </div>
             </div>
@@ -812,7 +812,7 @@ export default function MusicView() {
               
               <div className="space-y-3">
                 <p className="text-xs text-zinc-300 leading-relaxed">
-                  Who's ready for the new track drop this Friday? We've teamed up with GloRilla & Pooh Shiesty for a certified anthem. Catch the exclusive visual stream only on Utube Media first!
+                  Who's ready for the new track drop this Friday? We've teamed up with GloRilla & Pooh Shiesty for a certified anthem. Catch the exclusive visual stream only on Push2Play first!
                 </p>
                 
                 {/* Visual image attachment */}

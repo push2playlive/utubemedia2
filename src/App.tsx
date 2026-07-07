@@ -128,7 +128,7 @@ export default function App() {
     const saved = localStorage.getItem('ppl_user');
     if (saved === 'null') return null;
     return saved ? JSON.parse(saved) : {
-      name: 'UtubeMediaUser',
+      name: 'Push2PlayUser',
       email: 'push2playlive@gmail.com',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       bio: 'Atmospheric video connoisseur and certified audio engineer.',
@@ -139,7 +139,7 @@ export default function App() {
   // Current creator details (maps to currentUser details if they act as creator)
   const creatorDetails: Creator = {
     id: 'creator_braxtheog9', // matches Braxtheog9 mock profile
-    name: currentUser?.name || 'UtubeMediaUser',
+    name: currentUser?.name || 'Push2PlayUser',
     avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
     subscribers: 5820,
     isSubscribed: false,
@@ -208,6 +208,13 @@ export default function App() {
 
   // UI state
   const [currentView, setCurrentView] = useState('home');
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historySortOption, setHistorySortOption] = useState<'newest' | 'oldest' | 'shortest' | 'longest'>('newest');
+  const [historyWatchedDates, setHistoryWatchedDates] = useState<Record<string, string>>({});
+  const [historyTimeFilter, setHistoryTimeFilter] = useState<'all' | '7days' | '30days' | 'custom'>('all');
+  const [historyStartDate, setHistoryStartDate] = useState<string>('');
+  const [historyEndDate, setHistoryEndDate] = useState<string>('');
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -269,9 +276,46 @@ export default function App() {
     localStorage.setItem('ppl_wallet', JSON.stringify(wallet));
   }, [wallet]);
 
+  // Load watch history from server on mount
+  useEffect(() => {
+    fetch('/api/history')
+      .then(res => res.json())
+      .then(data => {
+        if (data && Array.isArray(data.videoIds)) {
+          setPlaylists(prev => {
+            return prev.map(pl => {
+              if (pl.id === 'pl_history') {
+                return { ...pl, videoIds: data.videoIds };
+              }
+              return pl;
+            });
+          });
+        }
+        if (data && data.watchedDates) {
+          setHistoryWatchedDates(data.watchedDates);
+        }
+        setHistoryLoaded(true);
+      })
+      .catch(err => {
+        console.error("Error loading watch history from server:", err);
+        setHistoryLoaded(true); // Fall back gracefully
+      });
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('ppl_playlists', JSON.stringify(playlists));
-  }, [playlists]);
+
+    if (historyLoaded) {
+      const pl = playlists.find(p => p.id === 'pl_history');
+      if (pl) {
+        fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoIds: pl.videoIds, watchedDates: historyWatchedDates })
+        }).catch(err => console.error("Error saving watch history to server:", err));
+      }
+    }
+  }, [playlists, historyLoaded, historyWatchedDates]);
 
   useEffect(() => {
     localStorage.setItem('ppl_campaigns', JSON.stringify(campaigns));
@@ -448,7 +492,7 @@ export default function App() {
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
-      doc.text('UTUBE MEDIA CONTENT INTEGRITY & COMPLIANCE', 15, 10);
+      doc.text('PUSH2PLAY CONTENT INTEGRITY & COMPLIANCE', 15, 10);
 
       // Report Status Header
       doc.setFont('Helvetica', 'bold');
@@ -621,11 +665,11 @@ export default function App() {
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 160);
-      doc.text('Utube Media Safety Enforcement Team • Automated Compliance Form export system.', 15, 282);
+      doc.text('Push2Play Safety Enforcement Team • Automated Compliance Form export system.', 15, 282);
       doc.text('Page 1 of 1', 180, 282);
 
       // Save PDF
-      doc.save(`Utube_Media_Violation_Report_${showReportModal.id}.pdf`);
+      doc.save(`Push2Play_Violation_Report_${showReportModal.id}.pdf`);
       setToastMessage('PDF Incident Report downloaded successfully!');
       setTimeout(() => setToastMessage(null), 3000);
     } catch (error) {
@@ -795,7 +839,7 @@ export default function App() {
         description: `Signed ${plan} Store Lease Plan: "${storeName}"`,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
         sender: '0x9a8B...884F',
-        recipient: 'Utube Media Store Lease Registry'
+        recipient: 'Push2Play Store Lease Registry'
       };
       return {
         ...prev,
@@ -829,7 +873,7 @@ export default function App() {
         description: `Funded Ad Campaign: "${newCamp.title}"`,
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
         sender: '0x9a8B...884F',
-        recipient: 'Utube Media Ad Protocol'
+        recipient: 'Push2Play Ad Protocol'
       };
       return {
         ...prev,
@@ -871,7 +915,7 @@ export default function App() {
           currency: 'PPL' as const,
           description: `Monetization share for ad click on: "${selectedVideo.title}"`,
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          sender: 'Utube Media Ad Protocol',
+          sender: 'Push2Play Ad Protocol',
           recipient: selectedVideo.creator.id
         };
         return {
@@ -918,7 +962,7 @@ export default function App() {
         currency: 'PPL' as const,
         description: 'Withdrew studio earnings to personal external cold ledger',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        sender: 'Utube Media Local Ledger',
+        sender: 'Push2Play Local Ledger',
         recipient: 'External Address (0x12a3...)'
       };
       return {
@@ -1215,6 +1259,12 @@ export default function App() {
       setSelectedVideo(params.video);
       setIsTheatreMode(false);
       
+      const nowStr = new Date().toISOString();
+      setHistoryWatchedDates(prev => ({
+        ...prev,
+        [params.video.id]: nowStr
+      }));
+
       // Save to watch history system playlist
       setPlaylists(prev => prev.map(pl => {
         if (pl.id === 'pl_history') {
@@ -1233,6 +1283,11 @@ export default function App() {
         // Save current short video to watch history
         if (shortsList[idx]) {
           const shortVid = shortsList[idx];
+          const nowStr = new Date().toISOString();
+          setHistoryWatchedDates(prev => ({
+            ...prev,
+            [shortVid.id]: nowStr
+          }));
           setPlaylists(prev => prev.map(pl => {
             if (pl.id === 'pl_history') {
               const withoutVideo = pl.videoIds.filter(id => id !== shortVid.id);
@@ -1284,7 +1339,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans select-none antialiased overflow-hidden" id="utubemedia-root">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans select-none antialiased overflow-hidden" id="push2play-root">
       {/* Universal Header */}
       <Header
         wallet={wallet}
@@ -1318,7 +1373,7 @@ export default function App() {
                     <path d="M8 5v14l11-7z" strokeWidth={2} />
                   </svg>
                 </div>
-                <span className="text-xs font-bold text-gold-400 font-mono tracking-wider uppercase">Utube Media Menu</span>
+                <span className="text-xs font-bold text-gold-400 font-mono tracking-wider uppercase">Push2Play Menu</span>
               </div>
               <button 
                 onClick={() => setMobileMenuOpen(false)}
@@ -1366,7 +1421,7 @@ export default function App() {
                 <div>
                   <h1 className="text-sm font-bold text-zinc-100 font-mono tracking-widest uppercase flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse"></span>
-                    <span>Utube Media Live Feed</span>
+                    <span>Push2Play Live Feed</span>
                   </h1>
                   <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Toggle between Extended Cinema streams and vertical Short Clips.</p>
                 </div>
@@ -1687,6 +1742,11 @@ export default function App() {
                   setActiveShortIdx(idx);
                   if (activeShortsVideos[idx]) {
                     const shortVid = activeShortsVideos[idx];
+                    const nowStr = new Date().toISOString();
+                    setHistoryWatchedDates(prev => ({
+                      ...prev,
+                      [shortVid.id]: nowStr
+                    }));
                     setPlaylists(prev => prev.map(pl => {
                       if (pl.id === 'pl_history') {
                         const withoutVideo = pl.videoIds.filter(id => id !== shortVid.id);
@@ -1947,7 +2007,7 @@ export default function App() {
                 <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
                   <Heart className="w-5.5 h-5.5 text-red-500" /> Liked Videos Ledger
                 </h1>
-                <p className="text-xs text-zinc-500">Every stream you have appreciated on Utube Media.</p>
+                <p className="text-xs text-zinc-500">Every stream you have appreciated on Push2Play.</p>
               </div>
 
               {getPlaylistVideos('pl_liked').length === 0 ? (
@@ -2067,7 +2127,7 @@ export default function App() {
           {/* WATCH HISTORY SYSTEM PLAYLIST VIEW */}
           {currentView === 'history' && (
             <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6 text-left animate-in fade-in duration-200" id="watch-history-view">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-900 pb-3">
                 <div>
                   <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
                     <History className="w-5.5 h-5.5 text-red-500" /> Watch History Stream Grid
@@ -2075,23 +2135,108 @@ export default function App() {
                   <p className="text-xs text-zinc-500">Every broadcast and short stream you have recently tuned into.</p>
                 </div>
                 {getPlaylistVideos('pl_history').length > 0 && (
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to clear your entire watch history?')) {
-                        setPlaylists(prev => prev.map(pl => {
-                          if (pl.id === 'pl_history') {
-                            return { ...pl, videoIds: [] };
-                          }
-                          return pl;
-                        }));
-                      }
-                    }}
-                    className="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 rounded-lg text-xs font-bold uppercase cursor-pointer border border-zinc-850 transition-all"
-                  >
-                    Clear History
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Time Range Filter Selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Time Range</span>
+                      <select
+                        value={historyTimeFilter}
+                        onChange={(e) => setHistoryTimeFilter(e.target.value as any)}
+                        className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800 text-zinc-200 text-xs px-3 py-1.5 rounded-lg outline-none focus:border-red-500/30 cursor-pointer font-sans transition-colors"
+                      >
+                        <option value="all">🗓️ All Time</option>
+                        <option value="7days">📅 Last 7 Days</option>
+                        <option value="30days">🗓️ Last 30 Days</option>
+                        <option value="custom">⚙️ Custom Range...</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Sort By</span>
+                      <select
+                        value={historySortOption}
+                        onChange={(e) => setHistorySortOption(e.target.value as any)}
+                        className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800 text-zinc-200 text-xs px-3 py-1.5 rounded-lg outline-none focus:border-red-500/30 cursor-pointer font-sans transition-colors"
+                      >
+                        <option value="newest">🕒 Date Added (Newest First)</option>
+                        <option value="oldest">🕒 Date Added (Oldest First)</option>
+                        <option value="shortest">📏 Duration (Shortest)</option>
+                        <option value="longest">📏 Duration (Longest)</option>
+                      </select>
+                    </div>
+
+                    {!showDeleteAllConfirm ? (
+                      <button
+                        onClick={() => setShowDeleteAllConfirm(true)}
+                        className="px-4 py-1.5 bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-red-300 rounded-lg text-xs font-bold uppercase cursor-pointer border border-red-900/40 transition-all flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete All History
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 bg-red-950/20 border border-red-900/30 px-3 py-1.5 rounded-lg animate-in fade-in zoom-in-95 duration-150">
+                        <span className="text-xs text-red-400 font-medium">Permanently clear all watch history?</span>
+                        <button
+                          onClick={() => {
+                            setPlaylists(prev => prev.map(pl => {
+                              if (pl.id === 'pl_history') {
+                                return { ...pl, videoIds: [] };
+                              }
+                              return pl;
+                            }));
+                            setHistoryWatchedDates({});
+                            setShowDeleteAllConfirm(false);
+                          }}
+                          className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteAllConfirm(false)}
+                          className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {/* Custom Date Pickers Dynamic Row */}
+              {historyTimeFilter === 'custom' && getPlaylistVideos('pl_history').length > 0 && (
+                <div className="flex flex-wrap items-center gap-4 bg-zinc-950 border border-zinc-900 p-3 rounded-xl animate-in slide-in-from-top-1.5 duration-150">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-bold">Start Date</span>
+                    <input
+                      type="date"
+                      value={historyStartDate}
+                      onChange={(e) => setHistoryStartDate(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-850 text-zinc-200 text-xs px-2.5 py-1.5 rounded-lg outline-none focus:border-red-500/30 cursor-pointer transition-colors"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-bold">End Date</span>
+                    <input
+                      type="date"
+                      value={historyEndDate}
+                      onChange={(e) => setHistoryEndDate(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-850 text-zinc-200 text-xs px-2.5 py-1.5 rounded-lg outline-none focus:border-red-500/30 cursor-pointer transition-colors"
+                    />
+                  </div>
+                  {(historyStartDate || historyEndDate) && (
+                    <button
+                      onClick={() => {
+                        setHistoryStartDate('');
+                        setHistoryEndDate('');
+                      }}
+                      className="text-[10px] font-mono text-red-400 hover:text-red-350 underline cursor-pointer"
+                    >
+                      Reset dates
+                    </button>
+                  )}
+                </div>
+              )}
 
               {getPlaylistVideos('pl_history').length === 0 ? (
                 <div className="text-center py-12 bg-zinc-900/10 rounded-2xl border border-zinc-900 p-6">
@@ -2101,41 +2246,119 @@ export default function App() {
                   <button onClick={() => setCurrentView('home')} className="mt-4 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs rounded-full font-bold cursor-pointer transition-colors">Discover Streams</button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {getPlaylistVideos('pl_history').map(vid => (
-                    <div
-                      key={vid.id}
-                      className="bg-zinc-950 border border-zinc-900 rounded-xl p-2 flex gap-3 cursor-pointer hover:border-zinc-800 transition-all relative group"
-                    >
-                      <div className="w-20 h-12 rounded overflow-hidden flex-shrink-0 relative" onClick={() => handleNavigate('video-detail', { video: vid })}>
-                        <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" />
-                        <span className="absolute bottom-0.5 right-0.5 bg-black/80 font-mono text-[8px] text-zinc-300 px-1 rounded">{vid.duration}</span>
+                (() => {
+                  const baseVideos = getPlaylistVideos('pl_history');
+                  const parseDuration = (durationStr: string): number => {
+                    const parts = durationStr.split(':').map(Number);
+                    if (parts.length === 3) {
+                      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+                    }
+                    if (parts.length === 2) {
+                      return parts[0] * 60 + parts[1];
+                    }
+                    return parts[0] || 0;
+                  };
+
+                  const formatHistoryDate = (dateStr: string | undefined): string => {
+                    if (!dateStr) return "July 5, 2026";
+                    try {
+                      const d = new Date(dateStr);
+                      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {
+                      return "July 5, 2026";
+                    }
+                  };
+
+                  // 1. Filter videos by watched date based on the selected time filter
+                  const filteredVideos = baseVideos.filter(vid => {
+                    const watchedAtStr = historyWatchedDates[vid.id] || new Date("2026-07-05T09:00:00.000Z").toISOString();
+                    const watchedAt = new Date(watchedAtStr).getTime();
+                    const now = Date.now();
+
+                    if (historyTimeFilter === '7days') {
+                      return now - watchedAt <= 7 * 24 * 3600 * 1000;
+                    }
+                    if (historyTimeFilter === '30days') {
+                      return now - watchedAt <= 30 * 24 * 3600 * 1000;
+                    }
+                    if (historyTimeFilter === 'custom') {
+                      const start = historyStartDate ? new Date(historyStartDate + 'T00:00:00').getTime() : 0;
+                      const end = historyEndDate ? new Date(historyEndDate + 'T23:59:59').getTime() : Infinity;
+                      return watchedAt >= start && watchedAt <= end;
+                    }
+                    return true;
+                  });
+
+                  // 2. Sort the filtered video list based on the chosen sort option
+                  let sortedVideos = [...filteredVideos];
+                  if (historySortOption === 'oldest') {
+                    // Reversed order from the base chronological order
+                    sortedVideos.reverse();
+                  } else if (historySortOption === 'shortest') {
+                    sortedVideos.sort((a, b) => parseDuration(a.duration) - parseDuration(b.duration));
+                  } else if (historySortOption === 'longest') {
+                    sortedVideos.sort((a, b) => parseDuration(b.duration) - parseDuration(a.duration));
+                  }
+
+                  if (sortedVideos.length === 0) {
+                    return (
+                      <div className="text-center py-12 bg-zinc-900/10 rounded-2xl border border-zinc-900 p-6">
+                        <AlertCircle className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-zinc-400">No stream logs found in this time range</p>
+                        <p className="text-xs text-zinc-500 mt-1">Try selecting a broader time scope or adjusting your filters above.</p>
                       </div>
-                      <div className="min-w-0 flex-grow" onClick={() => handleNavigate('video-detail', { video: vid })}>
-                        <h4 className="text-xs font-bold text-zinc-200 truncate group-hover:text-red-400 transition-colors">{vid.title}</h4>
-                        <p className="text-[10px] text-zinc-500 truncate">{vid.creator.name}</p>
-                        <span className="text-[9px] font-mono text-zinc-500 mt-1 block">{(vid.views).toLocaleString()} views</span>
-                      </div>
-                      
-                      {/* Delete button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPlaylists(prev => prev.map(pl => {
-                            if (pl.id === 'pl_history') {
-                              return { ...pl, videoIds: pl.videoIds.filter(id => id !== vid.id) };
-                            }
-                            return pl;
-                          }));
-                        }}
-                        className="absolute top-2 right-2 p-1.5 bg-zinc-900 border border-zinc-850 hover:bg-red-950/20 text-zinc-500 hover:text-red-400 rounded-lg cursor-pointer transition-colors"
-                        title="Remove from history"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {sortedVideos.map(vid => (
+                        <div
+                          key={vid.id}
+                          className="bg-zinc-950 border border-zinc-900 rounded-xl p-2 flex gap-3 cursor-pointer hover:border-zinc-800 transition-all relative group"
+                        >
+                          <div className="w-20 h-12 rounded overflow-hidden flex-shrink-0 relative" onClick={() => handleNavigate('video-detail', { video: vid })}>
+                            <img src={vid.thumbnail} alt="" className="w-full h-full object-cover" />
+                            <span className="absolute bottom-0.5 right-0.5 bg-black/80 font-mono text-[8px] text-zinc-300 px-1 rounded">{vid.duration}</span>
+                          </div>
+                          <div className="min-w-0 flex-grow" onClick={() => handleNavigate('video-detail', { video: vid })}>
+                            <h4 className="text-xs font-bold text-zinc-200 truncate group-hover:text-red-400 transition-colors">{vid.title}</h4>
+                            <p className="text-[10px] text-zinc-500 truncate">{vid.creator.name}</p>
+                            <div className="flex flex-col gap-0.5 mt-1">
+                              <span className="text-[9px] font-mono text-zinc-500">{(vid.views).toLocaleString()} views</span>
+                              <span className="text-[9px] font-mono text-zinc-450 text-red-500/85" title="Watch date">
+                                📅 {formatHistoryDate(historyWatchedDates[vid.id] || new Date("2026-07-05T09:00:00.000Z").toISOString())}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Delete button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Clean up both playlist and the tracked dates for a cleaner dataset
+                              setPlaylists(prev => prev.map(pl => {
+                                if (pl.id === 'pl_history') {
+                                  return { ...pl, videoIds: pl.videoIds.filter(id => id !== vid.id) };
+                                }
+                                return pl;
+                              }));
+                              setHistoryWatchedDates(prev => {
+                                const copy = { ...prev };
+                                delete copy[vid.id];
+                                return copy;
+                              });
+                            }}
+                            className="absolute top-2 right-2 p-1.5 bg-zinc-900 border border-zinc-850 hover:bg-red-950/20 text-zinc-500 hover:text-red-400 rounded-lg cursor-pointer transition-colors"
+                            title="Remove from history"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()
               )}
             </div>
           )}
@@ -2666,7 +2889,7 @@ export default function App() {
               </div>
 
               <p className="text-[10px] text-zinc-500 leading-normal">
-                Utube Media moderators investigate flagged streams 24/7. Filing false or malicious reports may result in account restriction.
+                Push2Play moderators investigate flagged streams 24/7. Filing false or malicious reports may result in account restriction.
               </p>
 
               <div className="flex flex-col gap-2.5 pt-2">

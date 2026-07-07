@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Mail, Lock, CheckCircle, ShieldAlert, Sparkles, Image, AlignLeft, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 interface AuthViewProps {
-  onLoginSuccess: (user: { name: string; email: string; avatar: string; bio?: string; isCreator: boolean }) => void;
+  onLoginSuccess: (user: { name: string; email: string; avatar: string; bio?: string; isCreator: boolean; isAdmin?: boolean }) => void;
 }
 
 // Preset modern elegant avatars for quick selection
@@ -16,6 +16,7 @@ const PRESET_AVATARS = [
 
 export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [loginRole, setLoginRole] = useState<'member' | 'admin'>('member');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -29,21 +30,44 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   // Get list of registered accounts in local storage
   const getRegisteredAccounts = () => {
     const saved = localStorage.getItem('ppl_registered_accounts');
-    if (saved) return JSON.parse(saved);
+    let accounts = [];
+    if (saved) {
+      try {
+        accounts = JSON.parse(saved);
+      } catch (e) {
+        accounts = [];
+      }
+    }
     
-    // Default demo account
-    const defaultAccounts = [
-      {
-        name: 'UtubeMediaUser',
+    // Ensure default member and admin are present
+    const hasMember = accounts.some((acc: any) => acc.email.toLowerCase() === 'push2playlive@gmail.com');
+    if (!hasMember) {
+      accounts.push({
+        name: 'Push2PlayUser',
         email: 'push2playlive@gmail.com',
         password: 'password123',
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
         bio: 'Atmospheric video connoisseur and certified audio engineer.',
         isCreator: true,
-      }
-    ];
-    localStorage.setItem('ppl_registered_accounts', JSON.stringify(defaultAccounts));
-    return defaultAccounts;
+        isAdmin: false,
+      });
+    }
+
+    const hasAdmin = accounts.some((acc: any) => acc.email.toLowerCase() === 'nexusos@commandnexus.net');
+    if (!hasAdmin) {
+      accounts.push({
+        name: 'Push2PlayAdmin',
+        email: 'nexusos@commandnexus.net',
+        password: 'admin1234567',
+        avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
+        bio: 'Chief Executive Administrator of the Push2Play Platform Network.',
+        isCreator: true,
+        isAdmin: true,
+      });
+    }
+
+    localStorage.setItem('ppl_registered_accounts', JSON.stringify(accounts));
+    return accounts;
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -75,6 +99,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       avatar: found.avatar,
       bio: found.bio || '',
       isCreator: found.isCreator,
+      isAdmin: found.isAdmin || found.email === 'nexusos@commandnexus.net',
     });
   };
 
@@ -107,8 +132,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       email: email.trim(),
       password,
       avatar: avatarUrl,
-      bio: bio.trim() || 'Welcome to my Utube Media celestial space!',
+      bio: bio.trim() || 'Welcome to my Push2Play celestial space!',
       isCreator,
+      isAdmin: false,
     };
 
     // Save account
@@ -122,6 +148,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       avatar: newAccount.avatar,
       bio: newAccount.bio,
       isCreator: newAccount.isCreator,
+      isAdmin: false,
     });
   };
 
@@ -132,16 +159,25 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-red-900/10 blur-[150px] z-0"></div>
 
       <div className="w-full max-w-lg bg-[#0c0c0f]/90 border border-zinc-900/80 rounded-3xl p-6 md:p-8 shadow-2xl relative z-10 space-y-6" id="auth-box">
-        {/* Logo Pairings */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 shadow-lg shadow-gold-500/20">
-            <svg className="w-5 h-5 text-black fill-current translate-x-[1px]" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+        {/* Logo Pairings with 2 concentric outer circles to look like a realistic push button */}
+        <div className="text-center space-y-3">
+          <div className="relative mx-auto flex items-center justify-center w-16 h-16 rounded-full border border-zinc-800/80 bg-[#07070a] shadow-inner">
+            {/* Outer concentric ring 1 */}
+            <div className="absolute inset-1.5 rounded-full border border-gold-500/15 bg-zinc-950 flex items-center justify-center shadow-md">
+              {/* Outer concentric ring 2 */}
+              <div className="absolute inset-1.5 rounded-full border border-gold-500/25 bg-zinc-900/60 flex items-center justify-center">
+                {/* Tactile push button core */}
+                <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 shadow-lg shadow-gold-500/25 transition-transform duration-150">
+                  <svg className="w-4 h-4 text-black fill-current translate-x-[1.5px]" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
           <div>
             <h1 className="text-xl md:text-2xl font-black text-white font-serif tracking-wide">
-              Utube Media <span className="text-gold-400 text-xs font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Live</span>
+              Push2Play <span className="text-gold-400 text-xs font-semibold uppercase tracking-widest px-1.5 py-0.5 bg-gold-500/10 rounded ml-1 border border-gold-500/20">Live</span>
             </h1>
             <p className="text-[10px] text-gold-500/80 font-mono tracking-widest uppercase mt-1">CURATED ART & CINEMA LEDGER</p>
           </div>
@@ -173,6 +209,39 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
         {isLogin ? (
           /* LOGIN FORM */
           <form onSubmit={handleLogin} className="space-y-4 text-left">
+            {/* Member vs Admin selection pills */}
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Authentication Tier</label>
+              <div className="grid grid-cols-2 gap-2 bg-[#050507] p-1 rounded-xl border border-zinc-900">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginRole('member');
+                    setEmail('push2playlive@gmail.com');
+                    setPassword('password123');
+                    setErrorMsg('');
+                  }}
+                  className={`py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${loginRole === 'member' ? 'bg-zinc-800 text-gold-400 border border-zinc-700/50' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  Member Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginRole('admin');
+                    setEmail('nexusos@commandnexus.net');
+                    setPassword('admin1234567');
+                    setErrorMsg('');
+                  }}
+                  className={`py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${loginRole === 'admin' ? 'bg-zinc-800 text-red-400 border border-zinc-700/50 shadow-inner' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
+                  Administrator
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-3.5">
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 font-mono">Email Address</label>
@@ -220,12 +289,17 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setEmail('push2playlive@gmail.com');
-                  setPassword('password123');
+                  if (loginRole === 'admin') {
+                    setEmail('nexusos@commandnexus.net');
+                    setPassword('admin1234567');
+                  } else {
+                    setEmail('push2playlive@gmail.com');
+                    setPassword('password123');
+                  }
                 }}
                 className="text-[10px] text-gold-500 hover:underline font-mono cursor-pointer"
               >
-                Autofill Demo Account credentials
+                Autofill {loginRole === 'admin' ? 'Admin' : 'Member'} Credentials
               </button>
             </div>
 
@@ -233,7 +307,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
               type="submit"
               className="w-full py-3 bg-gold-500 hover:bg-gold-600 text-black font-bold rounded-xl text-xs transition-all cursor-pointer shadow-lg shadow-gold-500/10 text-center"
             >
-              Sign In to Broadcast Feed
+              Sign In as {loginRole === 'admin' ? 'Administrator' : 'Member'}
             </button>
           </form>
         ) : (

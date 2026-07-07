@@ -139,7 +139,7 @@ export default function CreatorStudio({
           <div>
             <h1 className="text-xl font-bold text-zinc-150 flex items-center gap-2">
               <span>Creator Studio</span>
-              <span className="text-[10px] bg-red-500/20 text-red-400 font-mono font-bold px-2 py-0.5 rounded-full border border-red-500/10 uppercase tracking-widest">Utube Chat Center</span>
+              <span className="text-[10px] bg-red-500/20 text-red-400 font-mono font-bold px-2 py-0.5 rounded-full border border-red-500/10 uppercase tracking-widest">Push2Play Hub</span>
             </h1>
             <p className="text-xs text-zinc-500 mt-1">Manage broadcasts, review analytics, coordinate copyright removals, and set up gating rules.</p>
           </div>
@@ -727,7 +727,7 @@ export default function CreatorStudio({
                   {userVideos.length === 0 && (
                     <tr>
                       <td colSpan={7} className="text-center py-12 text-zinc-500 font-mono">
-                        No videos registered in Utube Chat catalogue. Add/Upload new clips using the launch header console.
+                        No videos registered in Push2Play catalogue. Add/Upload new clips using the launch header console.
                       </td>
                     </tr>
                   )}
@@ -755,7 +755,7 @@ export default function CreatorStudio({
               {/* Profile Picture (Screenshot 2 details) */}
               <div className="space-y-3 bg-[#07070a] p-4.5 rounded-xl border border-zinc-900">
                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">Picture</span>
-                <p className="text-[10px] text-zinc-500">Your profile picture will appear where your channel is presented on Utube.</p>
+                <p className="text-[10px] text-zinc-500">Your profile picture will appear where your channel is presented on Push2Play.</p>
                 
                 <div className="flex items-center gap-4 py-2">
                   <div className="w-16 h-16 rounded-full bg-zinc-900 border-2 border-zinc-800 overflow-hidden relative group">

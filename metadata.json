@@ -1,5 +1,5 @@
 {
-  "name": "Utube Media",
+  "name": "Push2Play",
   "description": "A high-fidelity premium video streaming and creator ecosystem. Features Long Play and Shorts vertical streams, threaded comments, custom playlists, mock crypto-wallet, active creator online stores with leasing systems, targeted advertising campaigns, and a comprehensive admin creator studio dashboard.",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
