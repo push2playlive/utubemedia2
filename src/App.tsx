@@ -727,13 +727,17 @@ export default function App() {
   };
 
   const handleShareReportLink = () => {
-    if (!showReportModal || !reportDraftId) return;
+    if (!showReportModal) return;
 
     try {
-      const deepLink = `${window.location.origin}${window.location.pathname}?reportId=${reportDraftId}&status=pending`;
+      const activeReport = reports.find(r => r.videoId === showReportModal.id);
+      const targetReportId = activeReport ? activeReport.id : reportDraftId;
+      if (!targetReportId) return;
+
+      const deepLink = `${window.location.origin}${window.location.pathname}?reportId=${targetReportId}`;
       navigator.clipboard.writeText(deepLink);
       setShareLinkCopied(true);
-      setToastMessage(`Deep link copied! ID: ${reportDraftId}`);
+      setToastMessage(`Deep link copied! ID: ${targetReportId}`);
       setTimeout(() => setToastMessage(null), 3500);
       setTimeout(() => setShareLinkCopied(false), 2500);
     } catch (err) {
@@ -1593,6 +1597,27 @@ export default function App() {
                               className={`w-full h-full object-cover group-hover/card:scale-103 transition-transform duration-500 ${getColorGradeClass(video.colorGrade)}`}
                               referrerPolicy="no-referrer"
                             />
+                            {/* Watch Later Heart Button */}
+                            {(() => {
+                              const isWatchLater = playlists.find(p => p.id === 'pl_watch_later')?.videoIds.includes(video.id);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddToPlaylist('pl_watch_later', video.id);
+                                    setToastMessage(isWatchLater ? 'Removed from Watch Later list' : 'Added to Watch Later list');
+                                    setTimeout(() => setToastMessage(null), 3000);
+                                  }}
+                                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-zinc-300 hover:text-red-500 border border-zinc-700/30 transition-all duration-200 z-10 group/heart-btn cursor-pointer"
+                                  title="Watch Later"
+                                >
+                                  <Heart 
+                                    className={`w-3.5 h-3.5 transition-transform duration-200 group-hover/heart-btn:scale-110 ${isWatchLater ? 'fill-red-500 text-red-500' : 'text-zinc-300'}`} 
+                                  />
+                                </button>
+                              );
+                            })()}
                             {/* Duration Indicator */}
                             <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/80 font-mono text-[9px] font-bold text-gold-400 border border-gold-500/15">
                               {video.duration}
@@ -1609,6 +1634,42 @@ export default function App() {
                                 Gated Pass
                               </span>
                             )}
+                            {/* New/Trending Badge if uploaded within 48 hours */}
+                            {(() => {
+                              const isRecent = (() => {
+                                if (!video.uploadDate) return false;
+                                const lower = video.uploadDate.toLowerCase();
+                                if (
+                                  lower.includes('yesterday') || 
+                                  lower.includes('hour') || 
+                                  lower.includes('minute') || 
+                                  lower.includes('second') || 
+                                  lower.includes('now') || 
+                                  lower.includes('1 day') || 
+                                  lower.includes('2 days ago')
+                                ) {
+                                  return true;
+                                }
+                                const parsed = Date.parse(video.uploadDate);
+                                if (!isNaN(parsed)) {
+                                  const diffMs = Date.now() - parsed;
+                                  if (diffMs > 0 && diffMs <= 48 * 60 * 60 * 1000) {
+                                    return true;
+                                  }
+                                }
+                                return false;
+                              })();
+
+                              if (isRecent) {
+                                return (
+                                  <span className={`absolute ${video.subscriptionGated ? 'top-8' : 'top-2'} left-2 px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[8px] font-bold tracking-widest rounded-sm uppercase border border-emerald-500/40 z-10 flex items-center gap-1 shadow-md animate-pulse`}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    New
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
 
                           {/* Card details */}
@@ -3052,7 +3113,7 @@ export default function App() {
                     ) : (
                       <>
                         <Share2 className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Share Deep Link</span>
+                        <span>{reports.some(r => r.videoId === showReportModal.id) ? 'Share Active Report' : 'Share Draft Link'}</span>
                       </>
                     )}
                   </button>

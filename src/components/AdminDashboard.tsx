@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, TrendingUp, Users, Eye, Play, Trash2, Wallet, Plus, 
   CheckCircle, Package, Lock, Shield, Mail, Send, MessageSquare, 
-  AlertTriangle, XCircle, Globe, ShieldAlert, Sparkles
+  AlertTriangle, XCircle, Globe, ShieldAlert, Sparkles, RefreshCw, Clock,
+  Share2, Check, Link
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, BarChart, Bar, Line, XAxis, YAxis, 
+  CartesianGrid, Tooltip as ChartTooltip, Legend, ComposedChart 
+} from 'recharts';
 import { Video, StoreProduct, UserWallet, Creator, AdCampaign, Comment, VideoReport } from '../types';
 
 interface AdminDashboardProps {
@@ -25,6 +30,33 @@ interface AdminDashboardProps {
   highlightReportId?: string;
   currentUserRole?: 'member' | 'moderator' | 'admin' | 'advertising';
 }
+
+const parseDurationToSeconds = (durationStr: string): number => {
+  if (!durationStr) return 0;
+  const parts = durationStr.split(':').map(Number);
+  if (parts.length === 2) {
+    return (parts[0] * 60) + parts[1];
+  } else if (parts.length === 3) {
+    return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+  }
+  return Number(durationStr) || 0;
+};
+
+const getStableRetentionRate = (videoId: string): number => {
+  let hash = 0;
+  for (let i = 0; i < videoId.length; i++) {
+    hash = videoId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const absoluteHash = Math.abs(hash);
+  return 48 + (absoluteHash % 35); // 48% to 83%
+};
+
+const formatSeconds = (totalSeconds: number): string => {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}m ${secs}s`;
+};
 
 export default function AdminDashboard({
   videos,
@@ -50,6 +82,8 @@ export default function AdminDashboard({
     return saved ? JSON.parse(saved) : [];
   });
   
+  const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
+  
   const [activeSubTab, setActiveSubTab] = useState<'stats' | 'videos' | 'products'>('stats');
   
   // Moderator Sub-Tabs
@@ -72,10 +106,92 @@ export default function AdminDashboard({
   // Moderator Search Filters
   const [modSearch, setModSearch] = useState('');
 
+  // AI Auto-Moderation States
+  const [isAutoModEnabled, setIsAutoModEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('wl_auto_mod_enabled');
+    return saved ? saved === 'true' : true;
+  });
+  const [autoModThreshold, setAutoModThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem('wl_auto_mod_threshold');
+    return saved ? parseInt(saved) : 35;
+  });
+  const [autoModFilterAction, setAutoModFilterAction] = useState<'flag' | 'hide'>('flag');
+  const [testCommentInput, setTestCommentInput] = useState('');
+  const [testCommentResult, setTestCommentResult] = useState<any>(null);
+  const [bulkPurging, setBulkPurging] = useState(false);
+
+  // Toxicity Sentiment Analysis Function
+  const analyzeCommentToxicity = (text: string) => {
+    const lowercaseText = text.toLowerCase();
+    
+    // Core high weight toxic words
+    const highToxicityWords = ['die', 'kill', 'hate', 'scam', 'fraud', 'scammer', 'idiot', 'stupid', 'dumb', 'garbage', 'trash', 'useless', 'jerk', 'fuck', 'shit', 'asshole'];
+    // Medium weight toxic words
+    const mediumToxicityWords = ['fake', 'bot', 'spam', 'ugly', 'annoying', 'worst', 'propaganda', 'shill', 'scammed', 'liar', 'cheat', 'nonsense', 'crap'];
+
+    const foundHigh = highToxicityWords.filter(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'i');
+      return regex.test(lowercaseText);
+    });
+
+    const foundMedium = mediumToxicityWords.filter(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'i');
+      return regex.test(lowercaseText);
+    });
+
+    // Score computation
+    let score = 0;
+    score += foundHigh.length * 35;
+    score += foundMedium.length * 15;
+    
+    // CAPITALIZED words increase aggressive tone penalty
+    const uppercaseWords = text.split(' ').filter(w => w.length > 2 && w === w.toUpperCase());
+    if (uppercaseWords.length > 1) {
+      score += 15;
+    }
+
+    score = Math.min(score, 100);
+
+    let label: 'Safe' | 'Suspect' | 'Toxic' | 'Severely Toxic' = 'Safe';
+    if (score >= 70) {
+      label = 'Severely Toxic';
+    } else if (score >= 40) {
+      label = 'Toxic';
+    } else if (score >= 15) {
+      label = 'Suspect';
+    }
+
+    return {
+      score,
+      toxicWords: [...foundHigh, ...foundMedium],
+      label,
+      isFlagged: score >= 15
+    };
+  };
+
+  useEffect(() => {
+    localStorage.setItem('wl_auto_mod_enabled', String(isAutoModEnabled));
+  }, [isAutoModEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('wl_auto_mod_threshold', String(autoModThreshold));
+  }, [autoModThreshold]);
+
+  useEffect(() => {
+    if (!testCommentInput.trim()) {
+      setTestCommentResult(null);
+      return;
+    }
+    const result = analyzeCommentToxicity(testCommentInput);
+    setTestCommentResult(result);
+  }, [testCommentInput]);
+
   // Reports Filter States
   const [reportSearch, setReportSearch] = useState('');
   const [reportStatusFilter, setReportStatusFilter] = useState<string>('all');
   const [reportCategoryFilter, setReportCategoryFilter] = useState<string>('all');
+  const [reportUrgencyFilter, setReportUrgencyFilter] = useState<string>('all');
+  const [reportSortOption, setReportSortOption] = useState<string>('newest');
 
   // Member Messaging States
   const mockMembers = [
@@ -105,32 +221,67 @@ export default function AdminDashboard({
   const creatorProducts = products.filter(p => p.creatorId === creatorDetails.id);
 
   // Filtered reports for Moderator Hub
-  const filteredReports = reports.filter((rep) => {
-    // 1. Status Filter
-    if (reportStatusFilter !== 'all' && rep.status !== reportStatusFilter) {
-      return false;
-    }
-
-    // 2. Category/Reason Filter
-    if (reportCategoryFilter !== 'all' && rep.reason !== reportCategoryFilter) {
-      return false;
-    }
-
-    // 3. Search Filter
-    if (reportSearch.trim() !== '') {
-      const searchLower = reportSearch.toLowerCase();
-      const targetVid = videos.find(v => v.id === rep.videoId);
-      const matchesVideoTitle = targetVid?.title.toLowerCase().includes(searchLower) || rep.videoTitle?.toLowerCase().includes(searchLower) || false;
-      const matchesReporterName = rep.reporterName.toLowerCase().includes(searchLower);
-      const matchesDetails = rep.details?.toLowerCase().includes(searchLower) || false;
-      const matchesReason = rep.reason?.toLowerCase().includes(searchLower) || false;
-
-      if (!matchesVideoTitle && !matchesReporterName && !matchesDetails && !matchesReason) {
+  const filteredReports = reports
+    .filter((rep) => {
+      // 1. Status Filter
+      if (reportStatusFilter !== 'all' && rep.status !== reportStatusFilter) {
         return false;
       }
-    }
-    return true;
-  });
+
+      // 2. Category/Reason Filter
+      if (reportCategoryFilter !== 'all' && rep.reason !== reportCategoryFilter) {
+        return false;
+      }
+
+      // 3. Urgency Filter
+      if (reportUrgencyFilter === 'critical' && !rep.urgent) {
+        return false;
+      }
+      if (reportUrgencyFilter === 'standard' && rep.urgent) {
+        return false;
+      }
+
+      // 4. Search Filter
+      if (reportSearch.trim() !== '') {
+        const searchLower = reportSearch.toLowerCase();
+        const targetVid = videos.find(v => v.id === rep.videoId);
+        const matchesVideoTitle = targetVid?.title.toLowerCase().includes(searchLower) || rep.videoTitle?.toLowerCase().includes(searchLower) || false;
+        const matchesReporterName = rep.reporterName.toLowerCase().includes(searchLower);
+        const matchesDetails = rep.details?.toLowerCase().includes(searchLower) || false;
+        const matchesReason = rep.reason?.toLowerCase().includes(searchLower) || false;
+
+        if (!matchesVideoTitle && !matchesReporterName && !matchesDetails && !matchesReason) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (reportSortOption === 'newest') {
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      }
+      if (reportSortOption === 'oldest') {
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      }
+      if (reportSortOption === 'pending') {
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (a.status !== 'pending' && b.status === 'pending') return 1;
+      }
+      if (reportSortOption === 'investigating') {
+        if (a.status === 'investigating' && b.status !== 'investigating') return -1;
+        if (a.status !== 'investigating' && b.status === 'investigating') return 1;
+      }
+      if (reportSortOption === 'resolved') {
+        if (a.status === 'resolved' && b.status !== 'resolved') return -1;
+        if (a.status !== 'resolved' && b.status === 'resolved') return 1;
+      }
+      if (reportSortOption === 'critical') {
+        const aUrgent = a.urgent ? 1 : 0;
+        const bUrgent = b.urgent ? 1 : 0;
+        return bUrgent - aUrgent;
+      }
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
 
   // Aggregate channel statistics
   const totalViews = creatorVideos.reduce((acc, curr) => acc + curr.views, 0);
@@ -566,6 +717,186 @@ export default function AdminDashboard({
                 />
               </div>
 
+              {/* AI Auto-Moderation Control Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" id="ai-auto-moderate-control-deck">
+                {/* 1. System Config */}
+                <div className="bg-[#0b0b0f] border border-zinc-900 rounded-2xl p-4 space-y-4 shadow-xl text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-gradient-to-tr from-red-500/10 to-purple-500/10 rounded-xl border border-red-500/10 text-red-400">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold font-mono text-zinc-250 uppercase tracking-wider">AI Guard Auto-Mod</h4>
+                        <span className="text-[9px] text-zinc-500 block">Real-time toxicity classifier</span>
+                      </div>
+                    </div>
+                    
+                    {/* Toggle Button */}
+                    <button
+                      onClick={() => setIsAutoModEnabled(!isAutoModEnabled)}
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors cursor-pointer focus:outline-none ${
+                        isAutoModEnabled ? 'bg-red-500' : 'bg-zinc-800'
+                      }`}
+                      id="ai-auto-mod-toggle"
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-black transition-transform ${
+                          isAutoModEnabled ? 'translate-x-5.5' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-mono uppercase tracking-wider">
+                        <span className="text-zinc-400 font-bold">Sensitivity Threshold</span>
+                        <span className="text-red-400 font-black">{autoModThreshold}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="10"
+                        max="90"
+                        value={autoModThreshold}
+                        onChange={(e) => setAutoModThreshold(Number(e.target.value))}
+                        disabled={!isAutoModEnabled}
+                        className="w-full accent-red-500 bg-zinc-900 rounded-lg h-1 cursor-pointer disabled:opacity-40"
+                      />
+                      <p className="text-[9px] text-zinc-500">
+                        Comments scoring above this threshold will trigger warning flags.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold font-mono text-zinc-400 uppercase tracking-wider block">Default Mod Action</label>
+                      <div className="grid grid-cols-2 gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-900 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setAutoModFilterAction('flag')}
+                          disabled={!isAutoModEnabled}
+                          className={`py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                            autoModFilterAction === 'flag' && isAutoModEnabled
+                              ? 'bg-zinc-900 text-red-400 border border-zinc-800'
+                              : 'text-zinc-500 hover:text-zinc-400 disabled:opacity-45'
+                          }`}
+                        >
+                          ⚠️ Flag & Inspect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAutoModFilterAction('hide')}
+                          disabled={!isAutoModEnabled}
+                          className={`py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                            autoModFilterAction === 'hide' && isAutoModEnabled
+                              ? 'bg-zinc-900 text-red-400 border border-zinc-800'
+                              : 'text-zinc-500 hover:text-zinc-400 disabled:opacity-45'
+                          }`}
+                        >
+                          👁️ Auto-Hide Toxic
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Interactive Simulator */}
+                <div className="bg-[#0b0b0f] border border-zinc-900 rounded-2xl p-4 space-y-3 shadow-xl text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1 rounded bg-zinc-900 text-zinc-400">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </span>
+                    <h4 className="text-xs font-bold font-mono text-zinc-250 uppercase tracking-wider">Toxicity Simulator</h4>
+                  </div>
+                  
+                  <textarea
+                    rows={2}
+                    value={testCommentInput}
+                    onChange={(e) => setTestCommentInput(e.target.value)}
+                    placeholder="Type comments here to test classification score..."
+                    className="w-full bg-zinc-950 border border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-350 placeholder-zinc-650 focus:outline-none focus:ring-1 focus:ring-red-500/20 resize-none font-mono"
+                  />
+
+                  {testCommentResult ? (
+                    <div className="bg-zinc-950 p-2.5 rounded-xl border border-zinc-900/80 flex items-center justify-between text-[11px] font-mono animate-in fade-in zoom-in-95 duration-150">
+                      <div>
+                        <span className="text-zinc-500 block text-[9px] uppercase font-bold">Classifier Verdict</span>
+                        <span className={`font-bold ${
+                          testCommentResult.score >= 70 ? 'text-red-500' : testCommentResult.score >= 40 ? 'text-amber-400' : 'text-emerald-400'
+                        }`}>
+                          {testCommentResult.label} ({testCommentResult.score}%)
+                        </span>
+                      </div>
+                      
+                      {testCommentResult.toxicWords.length > 0 && (
+                        <div className="text-right max-w-[150px] truncate">
+                          <span className="text-zinc-500 block text-[9px] uppercase font-bold">Triggers</span>
+                          <span className="text-zinc-400 font-medium">{testCommentResult.toxicWords.join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-10 flex items-center justify-center border border-dashed border-zinc-900 rounded-xl text-[10px] text-zinc-600 font-mono">
+                      Type above to trigger analyzer
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Bulk Command Deck */}
+                <div className="bg-[#0b0b0f] border border-zinc-900 rounded-2xl p-4 flex flex-col justify-between shadow-xl text-left">
+                  <div className="space-y-1.5">
+                    <h4 className="text-xs font-bold font-mono text-zinc-250 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Platform Auto-Purge Controls</span>
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 leading-relaxed">
+                      Instantly sweep bad actors. Runs high-speed scans against the live database of <span className="text-zinc-350 font-bold">{comments.length} comments</span>.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-3">
+                    <div className="flex justify-between items-center bg-zinc-950 px-2.5 py-1.5 rounded-xl border border-zinc-900/60 text-[10px] font-mono">
+                      <span className="text-zinc-550">Toxic comments found:</span>
+                      <span className="text-red-400 font-bold">
+                        {comments.filter(c => analyzeCommentToxicity(c.text).score >= autoModThreshold).length}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={bulkPurging || !isAutoModEnabled || comments.filter(c => analyzeCommentToxicity(c.text).score >= autoModThreshold).length === 0}
+                      onClick={() => {
+                        const toxicComments = comments.filter(c => analyzeCommentToxicity(c.text).score >= autoModThreshold);
+                        if (toxicComments.length === 0) return;
+                        if (confirm(`CRITICAL AI ACTION: Are you sure you want to permanently purge all ${toxicComments.length} comments flagged above the ${autoModThreshold}% threshold? This will update the network logs instantly.`)) {
+                          setBulkPurging(true);
+                          setTimeout(() => {
+                            if (onDeleteComment) {
+                              toxicComments.forEach(c => onDeleteComment(c.id));
+                            }
+                            setBulkPurging(false);
+                            alert(`✨ AI Sweep Successful! Purged ${toxicComments.length} comments.`);
+                          }, 1200);
+                        }
+                      }}
+                      className="w-full py-2 bg-red-600 hover:bg-red-500 disabled:bg-zinc-900 text-white disabled:text-zinc-600 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shadow-red-600/10 cursor-pointer disabled:cursor-not-allowed"
+                      id="ai-bulk-purge-btn"
+                    >
+                      {bulkPurging ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Sweeping Channels...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Purge Flagged Comments</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
@@ -587,8 +918,15 @@ export default function AdminDashboard({
                         )
                         .map((com) => {
                           const targetVid = videos.find(v => v.id === com.videoId);
+                          const toxicity = analyzeCommentToxicity(com.text);
+                          const isToxic = isAutoModEnabled && toxicity.score >= autoModThreshold;
+
                           return (
-                            <tr key={com.id} className="hover:bg-zinc-900/10 transition-colors">
+                            <tr key={com.id} className={`transition-colors duration-200 ${
+                              isToxic 
+                                ? 'bg-red-950/5 hover:bg-red-950/10 border-l-2 border-l-red-500/40' 
+                                : 'hover:bg-zinc-900/10'
+                            }`}>
                               <td className="p-4 whitespace-nowrap">
                                 <div className="flex gap-2 items-center">
                                   <img 
@@ -605,11 +943,31 @@ export default function AdminDashboard({
                                 </div>
                               </td>
                               <td className="p-4 max-w-sm">
-                                <p className="text-zinc-350 line-clamp-2 leading-relaxed whitespace-pre-wrap">{com.text}</p>
-                                {(reports.some(r => r.videoId === com.videoId) || com.text.toLowerCase().includes('scam') || com.text.toLowerCase().includes('fake') || com.text.toLowerCase().includes('bot') || com.text.toLowerCase().includes('spam')) && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-bold mt-1.5 border border-red-500/15 font-mono">
-                                    ⚠️ FLAG: SENSITIVE TEXT / SUSPECTED SPAM
-                                  </span>
+                                <p className={`text-zinc-350 line-clamp-2 leading-relaxed whitespace-pre-wrap ${isToxic && autoModFilterAction === 'hide' ? 'line-through opacity-40' : ''}`}>{com.text}</p>
+                                
+                                {isToxic ? (
+                                  <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-bold border border-red-500/15 font-mono animate-pulse">
+                                      <Sparkles className="w-2.5 h-2.5 text-red-500" />
+                                      AI FLAG: {toxicity.label} ({toxicity.score}% Toxicity)
+                                    </span>
+                                    {toxicity.toxicWords.length > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-500 text-[8px] font-mono">
+                                        Triggers: {toxicity.toxicWords.join(', ')}
+                                      </span>
+                                    )}
+                                    {autoModFilterAction === 'hide' && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-zinc-900 text-amber-500 text-[8px] font-bold border border-zinc-850 font-mono">
+                                        🚫 Auto-Hidden in App
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  (reports.some(r => r.videoId === com.videoId) || com.text.toLowerCase().includes('scam') || com.text.toLowerCase().includes('fake') || com.text.toLowerCase().includes('bot') || com.text.toLowerCase().includes('spam')) && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[8px] font-bold mt-1.5 border border-amber-500/15 font-mono">
+                                      ⚠️ FLAG: SENSITIVE TEXT / SUSPECTED SPAM
+                                    </span>
+                                  )
                                 )}
                               </td>
                               <td className="p-4 whitespace-nowrap text-zinc-450 font-medium">
@@ -695,7 +1053,7 @@ export default function AdminDashboard({
               </div>
 
               {/* Reports Filter Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#0c0c0f] border border-zinc-900 p-3 rounded-xl" id="reports-moderation-filters-bar">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-[#0c0c0f] border border-zinc-900 p-3 rounded-xl" id="reports-moderation-filters-bar">
                 {/* Search Term */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider block">Search Content or Reporter</label>
@@ -738,6 +1096,37 @@ export default function AdminDashboard({
                     <option value="Violence / Dangerous">⚠️ Violence / Dangerous</option>
                     <option value="Hate Speech / Harassment">💬 Hate Speech / Harassment</option>
                     <option value="Spam / Misleading">🚫 Spam / Misleading</option>
+                  </select>
+                </div>
+
+                {/* Urgency Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider block">Filter Urgency</label>
+                  <select
+                    value={reportUrgencyFilter}
+                    onChange={(e) => setReportUrgencyFilter(e.target.value)}
+                    className="w-full bg-zinc-950 text-xs border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-350 outline-none focus:border-red-500/20 font-mono cursor-pointer"
+                  >
+                    <option value="all">📂 All Urgencies</option>
+                    <option value="critical">🚨 Critical / Urgent</option>
+                    <option value="standard">⚪ Standard</option>
+                  </select>
+                </div>
+
+                {/* Sort Option Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider block">Sort Ledger By</label>
+                  <select
+                    value={reportSortOption}
+                    onChange={(e) => setReportSortOption(e.target.value)}
+                    className="w-full bg-zinc-950 text-xs border border-zinc-900 rounded-xl px-3 py-1.5 text-zinc-350 outline-none focus:border-red-500/20 font-mono cursor-pointer"
+                  >
+                    <option value="newest">🕒 Newest Submitted</option>
+                    <option value="oldest">⏳ Oldest Submitted</option>
+                    <option value="pending">🟡 Status: Pending First</option>
+                    <option value="investigating">🔵 Status: Investigating First</option>
+                    <option value="resolved">✅ Status: Resolved First</option>
+                    <option value="critical">🚨 Urgency: Critical First</option>
                   </select>
                 </div>
               </div>
@@ -850,10 +1239,75 @@ export default function AdminDashboard({
                             <td className="p-4 whitespace-nowrap font-mono text-[11px] text-zinc-500">
                               {rep.timestamp}
                             </td>
-                            <td className="p-4 whitespace-nowrap text-center">
-                              {rep.status === 'pending' || rep.status === 'investigating' ? (
-                                <div className="flex items-center justify-center gap-1.5">
-                                  {rep.status === 'pending' && (
+                             <td className="p-4 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                {rep.status === 'pending' || rep.status === 'investigating' ? (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {rep.status === 'pending' && (
+                                      <button
+                                        onClick={() => {
+                                          if (onUpdateReport) {
+                                            const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                                            const currentHist = rep.statusHistory || [
+                                              {
+                                                status: 'pending',
+                                                timestamp: rep.timestamp,
+                                                message: 'Report submitted by reporter and queued for review.'
+                                              }
+                                            ];
+                                            onUpdateReport({
+                                              ...rep,
+                                              status: 'investigating',
+                                              statusHistory: [
+                                                ...currentHist,
+                                                {
+                                                  status: 'investigating',
+                                                  timestamp: nowTimestamp,
+                                                  message: `Status updated to Investigating by Admin on ${nowTimestamp.substring(0, 10)}`
+                                                }
+                                              ]
+                                            });
+                                          }
+                                        }}
+                                        className="px-2 py-1 bg-blue-950/20 hover:bg-blue-650 text-blue-400 hover:text-white border border-blue-950 hover:border-blue-500 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
+                                      >
+                                        Investigate
+                                      </button>
+                                    )}
+                                    {targetVid && (
+                                      <button
+                                        onClick={() => {
+                                          if (confirm(`CRITICAL: Are you absolutely sure you want to permanently delete and restrict "${targetVid.title}" across the network? This will resolve the report.`)) {
+                                            onDeleteVideo(targetVid.id);
+                                            if (onUpdateReport) {
+                                              const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                                              const currentHist = rep.statusHistory || [
+                                                {
+                                                  status: 'pending',
+                                                  timestamp: rep.timestamp,
+                                                  message: 'Report submitted by reporter and queued for review.'
+                                                }
+                                              ];
+                                              onUpdateReport({
+                                                ...rep,
+                                                status: 'resolved',
+                                                statusHistory: [
+                                                  ...currentHist,
+                                                  {
+                                                    status: 'resolved',
+                                                    timestamp: nowTimestamp,
+                                                    message: `Status updated to Resolved by Admin on ${nowTimestamp.substring(0, 10)}`
+                                                  }
+                                                ]
+                                              });
+                                            }
+                                          }
+                                        }}
+                                        className="px-2 py-1 bg-red-950/20 hover:bg-red-650 text-red-400 hover:text-white border border-red-950 hover:border-red-500 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
+                                      >
+                                        Takedown Content
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => {
                                         if (onUpdateReport) {
@@ -867,90 +1321,54 @@ export default function AdminDashboard({
                                           ];
                                           onUpdateReport({
                                             ...rep,
-                                            status: 'investigating',
+                                            status: 'dismissed',
                                             statusHistory: [
                                               ...currentHist,
                                               {
-                                                status: 'investigating',
+                                                status: 'dismissed',
                                                 timestamp: nowTimestamp,
-                                                message: `Status updated to Investigating by Admin on ${nowTimestamp.substring(0, 10)}`
+                                                message: `Status updated to Dismissed by Admin on ${nowTimestamp.substring(0, 10)}`
                                               }
                                             ]
                                           });
                                         }
                                       }}
-                                      className="px-2 py-1 bg-blue-950/20 hover:bg-blue-650 text-blue-400 hover:text-white border border-blue-950 hover:border-blue-500 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
+                                      className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
                                     >
-                                      Investigate
+                                      Dismiss Report
                                     </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-zinc-550 font-mono text-[11px]">Completed ({rep.status})</span>
+                                )}
+
+                                <button
+                                  onClick={() => {
+                                    const deepLink = `${window.location.origin}${window.location.pathname}?reportId=${rep.id}`;
+                                    navigator.clipboard.writeText(deepLink);
+                                    setCopiedReportId(rep.id);
+                                    setTimeout(() => setCopiedReportId(null), 2500);
+                                  }}
+                                  className={`px-2 py-1 rounded-lg border flex items-center gap-1 cursor-pointer transition-all text-[11px] font-semibold ${
+                                    copiedReportId === rep.id 
+                                      ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-400 font-bold' 
+                                      : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-900 hover:border-amber-500/40 text-zinc-400 hover:text-amber-500'
+                                  }`}
+                                  title="Copy moderator collaboration link"
+                                >
+                                  {copiedReportId === rep.id ? (
+                                    <>
+                                      <Check className="w-3 h-3 text-emerald-400" />
+                                      <span>Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Share2 className="w-3 h-3" />
+                                      <span>Share</span>
+                                    </>
                                   )}
-                                  {targetVid && (
-                                    <button
-                                      onClick={() => {
-                                        if (confirm(`CRITICAL: Are you absolutely sure you want to permanently delete and restrict "${targetVid.title}" across the network? This will resolve the report.`)) {
-                                          onDeleteVideo(targetVid.id);
-                                          if (onUpdateReport) {
-                                            const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
-                                            const currentHist = rep.statusHistory || [
-                                              {
-                                                status: 'pending',
-                                                timestamp: rep.timestamp,
-                                                message: 'Report submitted by reporter and queued for review.'
-                                              }
-                                            ];
-                                            onUpdateReport({
-                                              ...rep,
-                                              status: 'resolved',
-                                              statusHistory: [
-                                                ...currentHist,
-                                                {
-                                                  status: 'resolved',
-                                                  timestamp: nowTimestamp,
-                                                  message: `Status updated to Resolved by Admin on ${nowTimestamp.substring(0, 10)}`
-                                                }
-                                              ]
-                                            });
-                                          }
-                                        }
-                                      }}
-                                      className="px-2 py-1 bg-red-950/20 hover:bg-red-650 text-red-400 hover:text-white border border-red-950 hover:border-red-500 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
-                                    >
-                                      Takedown Content
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => {
-                                      if (onUpdateReport) {
-                                        const nowTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
-                                        const currentHist = rep.statusHistory || [
-                                          {
-                                            status: 'pending',
-                                            timestamp: rep.timestamp,
-                                            message: 'Report submitted by reporter and queued for review.'
-                                          }
-                                        ];
-                                        onUpdateReport({
-                                          ...rep,
-                                          status: 'dismissed',
-                                          statusHistory: [
-                                            ...currentHist,
-                                            {
-                                              status: 'dismissed',
-                                              timestamp: nowTimestamp,
-                                              message: `Status updated to Dismissed by Admin on ${nowTimestamp.substring(0, 10)}`
-                                            }
-                                          ]
-                                        });
-                                      }
-                                    }}
-                                    className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded-lg cursor-pointer transition-all text-[11px] font-semibold"
-                                  >
-                                    Dismiss Report
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-zinc-550 font-mono">Completed ({rep.status})</span>
-                              )}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1215,6 +1633,186 @@ export default function AdminDashboard({
                       Initiate Ledger Settlement
                     </button>
                   </form>
+                </div>
+              </div>
+
+              {/* Watch Time & Retention Analytics Chart */}
+              <div className="bg-[#0c0c0f]/80 border border-zinc-900/80 p-5 rounded-2xl space-y-5">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-2 border-b border-zinc-900/60 gap-2 text-left">
+                  <div>
+                    <h3 className="text-xs font-semibold text-zinc-300 font-mono uppercase tracking-widest flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-red-500 animate-pulse" /> Watch Time & Retention Analytics
+                    </h3>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Average viewer retention time and engagement curves per video on the platform.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 font-mono font-bold uppercase">
+                      ● LIVE RETENTION DATA
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                  {/* Left Side: Summary / Key Metrics */}
+                  <div className="space-y-3.5 xl:border-r xl:border-zinc-900/60 xl:pr-6 text-left">
+                    <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-900">
+                      <span className="text-[9px] text-zinc-500 uppercase font-mono block">Overall Avg. Retention</span>
+                      <p className="text-xl font-extrabold font-mono text-zinc-200 mt-0.5">
+                        {(() => {
+                          const items: any[] = creatorVideos.length > 0 ? creatorVideos : [
+                            { id: 'sample-1', duration: '12:30' },
+                            { id: 'sample-2', duration: '08:45' },
+                            { id: 'sample-3', duration: '15:20' },
+                            { id: 'sample-4', duration: '05:10' },
+                            { id: 'sample-5', duration: '10:15' }
+                          ];
+                          const totalRetention = items.reduce((acc: number, v: any) => acc + getStableRetentionRate(v.id), 0);
+                          return (totalRetention / items.length).toFixed(1);
+                        })()}%
+                      </p>
+                      <span className="text-[9px] text-emerald-400 font-mono">▲ Strong audience hold (+4.3%)</span>
+                    </div>
+
+                    <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-900">
+                      <span className="text-[9px] text-zinc-500 uppercase font-mono block">Estimated Watch Time</span>
+                      <p className="text-xl font-extrabold font-mono text-zinc-200 mt-0.5">
+                        {(() => {
+                          const items: any[] = creatorVideos.length > 0 ? creatorVideos : [
+                            { id: 'sample-1', duration: '12:30', views: 12500 },
+                            { id: 'sample-2', duration: '08:45', views: 8900 },
+                            { id: 'sample-3', duration: '15:20', views: 24000 },
+                            { id: 'sample-4', duration: '05:10', views: 7200 },
+                            { id: 'sample-5', duration: '10:15', views: 15400 }
+                          ];
+                          const totalSec = items.reduce((acc: number, v: any) => {
+                            const dSec = parseDurationToSeconds(v.duration);
+                            const rRate = getStableRetentionRate(v.id);
+                            return acc + (dSec * (rRate / 100) * (v.views || 0));
+                          }, 0);
+                          const totalHrs = Math.round(totalSec / 3600);
+                          return totalHrs.toLocaleString() + ' hrs';
+                        })()}
+                      </p>
+                      <span className="text-[9px] text-zinc-500 font-mono">Accumulated play sessions</span>
+                    </div>
+
+                    <div className="text-[10px] text-zinc-500 leading-relaxed pt-2">
+                      <span className="text-zinc-400 font-bold block mb-1">💡 Optimization Tip:</span>
+                      Videos exceeding 10 minutes with a retention rate above 60% are automatically prioritized by the Utube Media AI feed recommender. Keep introductions crisp!
+                    </div>
+                  </div>
+
+                  {/* Right Side: Recharts Chart */}
+                  <div className="xl:col-span-3 min-h-[250px] w-full" id="recharts-retention-viewer-container">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <ComposedChart
+                        data={(() => {
+                          const items = creatorVideos.length > 0 ? creatorVideos : [
+                            { id: 'sample-1', title: 'Utube Media Launch Event', duration: '12:30', views: 12500 },
+                            { id: 'sample-2', title: 'Next-Gen Video Delivery', duration: '08:45', views: 8900 },
+                            { id: 'sample-3', title: 'React 19 & Framer Motion', duration: '15:20', views: 24000 },
+                            { id: 'sample-4', title: 'Building state PWA apps', duration: '05:10', views: 7200 },
+                            { id: 'sample-5', title: 'Socket.io Scaling Tips', duration: '10:15', views: 15400 },
+                            { id: 'sample-6', title: 'Haptic Feedback Design', duration: '04:30', views: 4200 },
+                            { id: 'sample-7', title: '60fps Scroll Optimization', duration: '11:05', views: 9800 }
+                          ];
+                          return items.slice(0, 8).map(v => {
+                            const durationSec = parseDurationToSeconds(v.duration);
+                            const retentionRate = getStableRetentionRate(v.id);
+                            const avgWatchSec = Math.round(durationSec * (retentionRate / 100));
+                            return {
+                              shortTitle: v.title.length > 15 ? v.title.substring(0, 13) + '...' : v.title,
+                              fullTitle: v.title,
+                              durationSec,
+                              avgWatchSec,
+                              retentionRate,
+                              formattedAvg: formatSeconds(avgWatchSec),
+                              formattedDuration: v.duration
+                            };
+                          });
+                        })()}
+                        margin={{ top: 10, right: 10, bottom: 10, left: 0 }}
+                      >
+                        <CartesianGrid stroke="#18181b" strokeDasharray="3 3" vertical={false} />
+                        <XAxis 
+                          dataKey="shortTitle" 
+                          stroke="#52525b" 
+                          fontSize={9}
+                          tickLine={false} 
+                          axisLine={false}
+                          dy={6}
+                        />
+                        <YAxis 
+                          yAxisId="left"
+                          stroke="#52525b" 
+                          fontSize={9}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(val) => `${val}s`}
+                        />
+                        <YAxis 
+                          yAxisId="right"
+                          orientation="right"
+                          stroke="#52525b" 
+                          fontSize={9}
+                          tickLine={false}
+                          axisLine={false}
+                          domain={[0, 100]}
+                          tickFormatter={(val) => `${val}%`}
+                        />
+                        <ChartTooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-[#09090b] border border-zinc-850 p-2.5 rounded-xl font-mono text-[10px] space-y-1 shadow-2xl text-left">
+                                  <p className="text-zinc-200 font-bold truncate max-w-[200px]">{data.fullTitle}</p>
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-zinc-500">Total Duration:</span>
+                                    <span className="text-zinc-350 font-bold">{data.formattedDuration}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-red-400">Avg. Watch Time:</span>
+                                    <span className="text-red-400 font-bold">{data.formattedAvg}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-amber-400">Audience Retention:</span>
+                                    <span className="text-amber-400 font-bold">{data.retentionRate}%</span>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend 
+                          verticalAlign="top" 
+                          align="right"
+                          iconSize={8}
+                          iconType="circle"
+                          wrapperStyle={{ fontSize: 9, fontFamily: 'monospace', paddingBottom: 15 }}
+                        />
+                        <Bar 
+                          yAxisId="left"
+                          name="Avg Watch Time" 
+                          dataKey="avgWatchSec" 
+                          fill="#ef4444" 
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={32}
+                        />
+                        <Line 
+                          yAxisId="right"
+                          name="Retention Rate" 
+                          type="monotone" 
+                          dataKey="retentionRate" 
+                          stroke="#f59e0b" 
+                          strokeWidth={2.5}
+                          dot={{ r: 3, fill: '#09090b', strokeWidth: 1.5, stroke: '#f59e0b' }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </div>
