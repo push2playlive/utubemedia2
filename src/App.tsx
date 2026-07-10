@@ -15,6 +15,9 @@ import AuthView from './components/AuthView';
 import MusicView from './components/MusicView';
 import CreatorStudio from './components/CreatorStudio';
 import PremiumSubscriptionView from './components/PremiumSubscriptionView';
+import CommandNexusBannerAd from './components/CommandNexusBannerAd';
+import AmbientGlowCanvas from './components/AmbientGlowCanvas';
+import WhiteLabelGallery from './components/WhiteLabelGallery';
 
 // Mock Data
 import { 
@@ -124,6 +127,7 @@ export default function App() {
     youtubeApiKey?: string;
     instagramApiKey?: string;
     facebookApiKey?: string;
+    role?: 'member' | 'moderator' | 'admin' | 'advertising';
   } | null>(() => {
     const saved = localStorage.getItem('ppl_user');
     if (saved === 'null') return null;
@@ -132,7 +136,8 @@ export default function App() {
       email: 'push2playlive@gmail.com',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       bio: 'Atmospheric video connoisseur and certified audio engineer.',
-      isCreator: true // Connected to admin channel by default to showcase admin panel!
+      isCreator: true,
+      role: 'member'
     };
   });
 
@@ -207,7 +212,12 @@ export default function App() {
   };
 
   // UI state
-  const [currentView, setCurrentView] = useState('home');
+  const [currentView, setCurrentView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    if (viewParam === 'gallery') return 'white-label-gallery';
+    return 'home';
+  });
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historySortOption, setHistorySortOption] = useState<'newest' | 'oldest' | 'shortest' | 'longest'>('newest');
   const [historyWatchedDates, setHistoryWatchedDates] = useState<Record<string, string>>({});
@@ -240,7 +250,16 @@ export default function App() {
   const [reportEvidence, setReportEvidence] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
   const reportVideoStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleToggleSidebar = () => {
     if (window.innerWidth < 1024) {
@@ -262,6 +281,34 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [mobileMenuOpen]);
+
+  // Toggle theatre mode on 't' keypress when viewing a video in video-detail view
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (currentView !== 'video-detail') return;
+
+      // Avoid triggering when user is typing in input, textarea, or contenteditable elements
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        setIsTheatreMode(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentView]);
 
   // Sync state to local storage
   useEffect(() => {
@@ -1104,14 +1151,29 @@ export default function App() {
     setVideos(prev => prev.map(v => {
       if (v.id === videoId) {
         const isLiked = !v.isLiked;
-        return {
+        const updated = {
           ...v,
           isLiked,
           isDisliked: false,
           likes: v.likes + (isLiked ? 1 : -1)
         };
+        if (selectedVideo && selectedVideo.id === videoId) {
+          setSelectedVideo(updated);
+        }
+        return updated;
       }
       return v;
+    }));
+
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id === 'pl_liked') {
+        const hasVideo = pl.videoIds.includes(videoId);
+        const updatedVideoIds = !hasVideo
+          ? [...pl.videoIds, videoId]
+          : pl.videoIds.filter(id => id !== videoId);
+        return { ...pl, videoIds: updatedVideoIds };
+      }
+      return pl;
     }));
   };
 
@@ -1119,14 +1181,25 @@ export default function App() {
     setVideos(prev => prev.map(v => {
       if (v.id === videoId) {
         const isDisliked = !v.isDisliked;
-        return {
+        const updated = {
           ...v,
           isDisliked,
           isLiked: false,
           dislikes: v.dislikes + (isDisliked ? 1 : -1)
         };
+        if (selectedVideo && selectedVideo.id === videoId) {
+          setSelectedVideo(updated);
+        }
+        return updated;
       }
       return v;
+    }));
+
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id === 'pl_liked') {
+        return { ...pl, videoIds: pl.videoIds.filter(id => id !== videoId) };
+      }
+      return pl;
     }));
   };
 
@@ -1327,6 +1400,12 @@ export default function App() {
   // Ad Placement Fetcher
   const activeAdCampaign = campaigns.find(c => c.status === 'active') || null;
 
+  // Direct standalone white-label bypass
+  const isQueryStandalone = new URLSearchParams(window.location.search).get('view') === 'gallery';
+  if (isQueryStandalone) {
+    return <WhiteLabelGallery />;
+  }
+
   if (!currentUser) {
     return (
       <AuthView 
@@ -1353,6 +1432,11 @@ export default function App() {
         onOpenProfile={() => handleNavigate('profile-settings')}
         currentUser={currentUser}
         onToggleMobileMenu={handleToggleSidebar}
+        onUpdateUserRole={(newRole) => {
+          const updated = { ...currentUser, role: newRole };
+          setCurrentUser(updated);
+          localStorage.setItem('ppl_user', JSON.stringify(updated));
+        }}
       />
 
       {/* Mobile Drawer (Overlay and Menu Panel) */}
@@ -1411,6 +1495,9 @@ export default function App() {
 
         {/* Central Scrolling Feed */}
         <main className="flex-1 overflow-y-auto h-[calc(100vh-57px)]" id="main-feed-scroll">
+          
+          {/* Global Sponsor Ad Banner for Standard (Free) Accounts */}
+          <CommandNexusBannerAd isPremiumSubscribed={isPremiumSubscribed} />
           
           {/* HOME GRID STREAM */}
           {currentView === 'home' && (
@@ -1642,34 +1729,34 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Theatre Mode full width Player */}
-              {isTheatreMode && (
-                <div className="w-full">
-                  <VideoPlayer
-                    video={selectedVideo}
-                    playlists={playlists}
-                    onAddToPlaylist={handleAddToPlaylist}
-                    onCreatePlaylist={handleCreatePlaylist}
-                    activeAd={activeAdCampaign}
-                    onAdClicked={handleAdClicked}
-                    onAdClosed={handleAdClosed}
-                    onBuyProduct={handleBuyProduct}
-                    wallet={wallet}
-                    onLike={handleLikeVideo}
-                    onDislike={handleDislikeVideo}
-                    onSubscribe={handleSubscribe}
-                    isTheatreMode={isTheatreMode}
-                    onToggleTheatreMode={() => setIsTheatreMode(!isTheatreMode)}
-                    onUpdateVideoDescription={handleUpdateVideoDescription}
-                    disableAds={currentUser?.isCreator || isPremiumSubscribed}
-                  />
-                </div>
-              )}
-
-              <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-300 ${isTheatreMode ? 'opacity-30 hover:opacity-100' : ''}`}>
-                {/* Left Column: Player & Comments */}
-                <div className="lg:col-span-2 space-y-6">
-                  {!isTheatreMode && (
+              {/* Unified Responsive Media & Playback Grid with Smooth Transition */}
+              <div 
+                className="grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-500 ease-in-out"
+                id="video-detail-responsive-workspace-grid"
+                style={{
+                  gridTemplateAreas: isLargeScreen
+                    ? (isTheatreMode
+                      ? `"player player player"`
+                      : `"player player upnext" "comments comments upnext"`)
+                    : undefined
+                }}
+              >
+                {/* 1. Video Player Container with Ambient Glow backing when in Theatre Mode */}
+                <div 
+                  className="relative w-full"
+                  style={isLargeScreen ? { gridArea: 'player' } : undefined}
+                >
+                  {isTheatreMode && (
+                    <AmbientGlowCanvas video={selectedVideo} />
+                  )}
+                  <div 
+                    className={`w-full overflow-hidden transition-all duration-500 ease-in-out ${
+                      isTheatreMode 
+                        ? 'ring-1 ring-gold-500/20 theatre-pulse-active rounded-2xl' 
+                        : 'ring-0 ring-transparent shadow-none'
+                    }`}
+                    id="video-player-theatre-wrapper"
+                  >
                     <VideoPlayer
                       video={selectedVideo}
                       playlists={playlists}
@@ -1688,9 +1775,17 @@ export default function App() {
                       onUpdateVideoDescription={handleUpdateVideoDescription}
                       disableAds={currentUser?.isCreator || isPremiumSubscribed}
                     />
-                  )}
-                  
-                  {/* Comments Thread */}
+                  </div>
+                </div>
+
+                {/* 2. Comments Section Wrapper */}
+                <div 
+                  className={`space-y-6 transition-all duration-500 ease-in-out ${
+                    isTheatreMode ? 'opacity-0 pointer-events-none invisible max-h-0 overflow-hidden' : 'opacity-100'
+                  }`}
+                  style={isLargeScreen ? { gridArea: 'comments' } : undefined}
+                  id="comments-section-theatre-wrapper"
+                >
                   <CommentsSection
                     comments={comments.filter(c => c.videoId === selectedVideo.id)}
                     onAddComment={handleAddComment}
@@ -1706,8 +1801,14 @@ export default function App() {
                   />
                 </div>
 
-                {/* Right Column: Up Next recommendation stream list */}
-                <div className="space-y-4 text-left">
+                {/* 3. Up Next Recommendations Wrapper */}
+                <div 
+                  className={`space-y-4 text-left transition-all duration-500 ease-in-out ${
+                    isTheatreMode ? 'opacity-0 pointer-events-none invisible max-h-0 overflow-hidden' : 'opacity-100'
+                  }`}
+                  style={isLargeScreen ? { gridArea: 'upnext' } : undefined}
+                  id="up-next-section-theatre-wrapper"
+                >
                   <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest font-mono border-b border-zinc-900/60 pb-2">Up Next</h3>
                   <div className="space-y-3">
                     {activeLongPlayVideos
@@ -2073,6 +2174,7 @@ export default function App() {
               onCreateCampaign={handleCreateAdCampaign}
               creatorMonetization={creatorMonetization}
               onToggleMonetization={() => setCreatorMonetization(!creatorMonetization)}
+              currentUserRole={currentUser.role || 'member'}
             />
           )}
 
@@ -2091,26 +2193,57 @@ export default function App() {
 
           {/* ADMIN DASHBOARD CONSOLE */}
           {currentView === 'admin' && (
-            <AdminDashboard
-              videos={videos}
-              products={products}
-              wallet={wallet}
-              creatorDetails={creatorDetails}
-              onDeleteVideo={handleDeleteVideo}
-              onAddProduct={handlePublishStoreProduct}
-              onWithdrawEarnings={handleWithdrawEarnings}
-              campaigns={campaigns}
-              onUpdateCampaign={(updated) => {
-                setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
-              }}
-              comments={comments}
-              onDeleteComment={handleDeleteComment}
-              reports={reports}
-              onUpdateReport={(updated) => {
-                setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
-              }}
-              highlightReportId={highlightedReportId}
-            />
+            currentUser.role === 'member' || currentUser.role === 'advertising' ? (
+              <div className="max-w-xl mx-auto my-12 p-8 bg-[#0c0c0f] border border-zinc-900 rounded-3xl text-center space-y-6 animate-in fade-in duration-200">
+                <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 text-xl font-mono animate-bounce">
+                  🛑
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-base font-bold font-serif text-zinc-100">Universal Access Restricted</h2>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    CommandNexus security layers detected a role mismatch. Standard <strong>Member</strong> or <strong>Merchant</strong> credentials cannot access universal administrative overrides.
+                  </p>
+                </div>
+                <div className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-900/80 text-left space-y-3">
+                  <span className="text-[10px] font-mono font-bold text-zinc-550 uppercase tracking-widest block">How to access:</span>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Use the <strong>SSO Role Tier</strong> switcher at the top right of the screen (inside your profile avatar dropdown) to elevate your account to <strong>Moderator</strong> or <strong>Admin</strong>.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    const updated = { ...currentUser, role: 'admin' as const };
+                    setCurrentUser(updated);
+                    localStorage.setItem('ppl_user', JSON.stringify(updated));
+                  }}
+                  className="w-full py-2.5 bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold rounded-lg text-xs cursor-pointer shadow hover:opacity-90 transition-opacity"
+                >
+                  Elevate Credentials to Admin
+                </button>
+              </div>
+            ) : (
+              <AdminDashboard
+                videos={videos}
+                products={products}
+                wallet={wallet}
+                creatorDetails={creatorDetails}
+                onDeleteVideo={handleDeleteVideo}
+                onAddProduct={handlePublishStoreProduct}
+                onWithdrawEarnings={handleWithdrawEarnings}
+                campaigns={campaigns}
+                onUpdateCampaign={(updated) => {
+                  setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+                }}
+                comments={comments}
+                onDeleteComment={handleDeleteComment}
+                reports={reports}
+                onUpdateReport={(updated) => {
+                  setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
+                }}
+                highlightReportId={highlightedReportId}
+                currentUserRole={currentUser.role || 'member'}
+              />
+            )
           )}
 
           {/* USER PROFILE & GENERAL SETTINGS PAGE */}
@@ -2427,6 +2560,11 @@ export default function App() {
           {/* MUSIC CHANNEL & HUB PLATFORM */}
           {currentView === 'music' && (
             <MusicView />
+          )}
+
+          {/* WHITE LABEL GALLERY PREVIEW PLATFORM */}
+          {currentView === 'white-label-gallery' && (
+            <WhiteLabelGallery />
           )}
         </main>
       </div>

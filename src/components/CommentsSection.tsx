@@ -14,6 +14,7 @@ import {
   ChevronDown, 
   Check 
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Comment, CommentReply } from '../types';
 
 interface CommentsSectionProps {
@@ -46,8 +47,18 @@ export default function CommentsSection({
   const [newCommentText, setNewCommentText] = useState('');
   const [replyInputs, setReplyInputs] = useState<{ [commentId: string]: string }>({});
   const [activeReplyBoxId, setActiveReplyBoxId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'top' | 'newest'>('top');
+  const [sortBy, setSortBy] = useState<'mostLiked' | 'newest' | 'oldest'>('mostLiked');
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [heartPops, setHeartPops] = useState<{ [commentId: string]: boolean }>({});
+
+  const triggerHeartPop = (commentId: string) => {
+    setHeartPops(prev => ({ ...prev, [commentId]: true }));
+    onHeartComment(commentId);
+    setTimeout(() => {
+      setHeartPops(prev => ({ ...prev, [commentId]: false }));
+    }, 1000);
+  };
 
   // States for three-dots menu and editing comments
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -93,12 +104,38 @@ export default function CommentsSection({
     }
   };
 
+  // Parse relative time string to approximate minutes ago for sorting
+  const parseRelativeToMinutes = (timeStr: string): number => {
+    const str = timeStr.toLowerCase();
+    if (str.includes('now') || str.includes('second')) return 0;
+    const match = str.match(/^(\d+)\s+(\w+)/);
+    if (!match) {
+      if (str.includes('yesterday')) return 1440;
+      return 999999;
+    }
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    if (unit.startsWith('minute')) return value;
+    if (unit.startsWith('hour')) return value * 60;
+    if (unit.startsWith('day')) return value * 24 * 60;
+    if (unit.startsWith('week')) return value * 7 * 24 * 60;
+    if (unit.startsWith('month')) return value * 30 * 24 * 60;
+    if (unit.startsWith('year')) return value * 365 * 24 * 60;
+    return 999999;
+  };
+
   // Sort logic
   const sortedComments = [...comments].sort((a, b) => {
     if (sortBy === 'newest') {
-      return b.timestamp.includes('seconds') || b.timestamp.includes('now') ? -1 : 1;
+      return parseRelativeToMinutes(a.timestamp) - parseRelativeToMinutes(b.timestamp);
     }
-    return (b.likes + (b.isLiked ? 1 : 0)) - (a.likes + (a.isLiked ? 1 : 0));
+    if (sortBy === 'oldest') {
+      return parseRelativeToMinutes(b.timestamp) - parseRelativeToMinutes(a.timestamp);
+    }
+    // mostLiked
+    const likesA = a.likes + (a.isLiked ? 1 : 0);
+    const likesB = b.likes + (b.isLiked ? 1 : 0);
+    return likesB - likesA;
   });
 
   // Renders the stylized red play avatar or fallback to image
@@ -115,6 +152,26 @@ export default function CommentsSection({
         src={avatarUrl} 
         alt={userName} 
         className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-zinc-850" 
+        referrerPolicy="no-referrer"
+      />
+    );
+  };
+
+  // Renders a micro avatar next to the username for immersive chat-style experience
+  const renderMiniAvatar = (avatarUrl: string, userName: string) => {
+    if (userName === 'UtubeChat' || avatarUrl === 'pp_logo' || !avatarUrl || avatarUrl.includes('placeholder')) {
+      return (
+        <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-red-600/15 select-none" id={`mini-avatar-utube-${userName}`}>
+          <div className="w-0 h-0 border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent border-l-[5px] border-l-white translate-x-[1px]" />
+        </div>
+      );
+    }
+    const isSpecialCreator = userName === 'A Word of Wisdom' || userName === 'My Dirty Lense' || userName === creatorId;
+    return (
+      <img 
+        src={avatarUrl} 
+        alt={userName} 
+        className={`w-5 h-5 rounded-full object-cover flex-shrink-0 border ${isSpecialCreator ? 'border-gold-500/80 shadow-sm shadow-gold-500/10' : 'border-zinc-800'}`} 
         referrerPolicy="no-referrer"
       />
     );
@@ -152,13 +209,62 @@ export default function CommentsSection({
 
         {/* Action icons on right */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSortBy(sortBy === 'top' ? 'newest' : 'top')}
-            title={`Sort by: ${sortBy === 'top' ? 'Newest' : 'Top'}`}
-            className="p-1.5 rounded-lg bg-zinc-950/60 hover:bg-zinc-900 border border-zinc-900/60 text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
-          >
-            <ListFilter className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+              title="Sort Comments"
+              className="px-2.5 py-1.5 rounded-lg bg-zinc-950/60 hover:bg-zinc-900 border border-zinc-900/60 text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5 transition-colors cursor-pointer text-[10px] font-mono font-bold"
+            >
+              <ListFilter className="w-3.5 h-3.5 text-gold-400" />
+              <span>
+                {sortBy === 'mostLiked' ? 'Most Liked' : sortBy === 'newest' ? 'Newest' : 'Oldest'}
+              </span>
+            </button>
+            
+            {isSortMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setIsSortMenuOpen(false)} />
+                <div className="absolute right-0 mt-1 z-30 bg-[#0d0d11] border border-zinc-800/80 rounded-xl shadow-2xl p-1.5 w-32 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest px-2 py-1 border-b border-zinc-900 mb-1 font-mono">
+                    Sort Order
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSortBy('mostLiked');
+                      setIsSortMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${sortBy === 'mostLiked' ? 'text-gold-400 bg-gold-500/5' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}
+                  >
+                    <span>Most Liked</span>
+                    {sortBy === 'mostLiked' && <Check className="w-3 h-3 text-gold-400" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSortBy('newest');
+                      setIsSortMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${sortBy === 'newest' ? 'text-gold-400 bg-gold-500/5' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}
+                  >
+                    <span>Newest</span>
+                    {sortBy === 'newest' && <Check className="w-3 h-3 text-gold-400" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSortBy('oldest');
+                      setIsSortMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${sortBy === 'oldest' ? 'text-gold-400 bg-gold-500/5' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}
+                  >
+                    <span>Oldest</span>
+                    {sortBy === 'oldest' && <Check className="w-3 h-3 text-gold-400" />}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           
           <button
             onClick={() => setIsCollapsed(true)}
@@ -213,12 +319,13 @@ export default function CommentsSection({
                   <div className="flex-1 text-left min-w-0">
                     <div className="flex items-center justify-between">
                       {/* Handle and Date */}
-                      <div className="flex items-center">
+                      <div className="flex items-center gap-1.5">
+                        {renderMiniAvatar(comment.userAvatar, comment.userName)}
                         <span className="text-xs font-bold text-zinc-200">
                           @{comment.userName.replace(/\s+/g, '')}
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-medium font-sans ml-2.5">
-                          {comment.timestamp}
+                        <span className="text-[10px] text-zinc-500 font-medium font-sans ml-1">
+                          • {comment.timestamp}
                         </span>
                       </div>
 
@@ -313,20 +420,102 @@ export default function CommentsSection({
 
                       {/* Creator Heart Action Indicator */}
                       {comment.isHeartedByCreator && (
-                        <span className="flex items-center gap-1 text-gold-400 text-[9px] font-bold bg-gold-500/5 px-2 py-0.5 rounded-full border border-gold-500/10">
-                          <Heart className="w-2.5 h-2.5 fill-current text-gold-500" /> Hearted by Creator
-                        </span>
+                        <div className="relative inline-flex items-center">
+                          <span 
+                            onClick={() => {
+                              if (creatorId === currentUser.name) {
+                                triggerHeartPop(comment.id);
+                              }
+                            }}
+                            className={`flex items-center gap-1 text-gold-400 text-[9px] font-bold bg-gold-500/5 px-2 py-0.5 rounded-full border border-gold-500/10 ${creatorId === currentUser.name ? 'cursor-pointer hover:bg-gold-500/10 transition-colors' : ''}`}
+                            title={creatorId === currentUser.name ? "Click to unheart this comment" : undefined}
+                          >
+                            <motion.div
+                              initial={{ scale: 0.8 }}
+                              animate={{ scale: [0.8, 1.4, 1.0] }}
+                              transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                              className="inline-block"
+                            >
+                              <Heart className="w-2.5 h-2.5 fill-current text-gold-500" />
+                            </motion.div>
+                            Hearted by Creator
+                          </span>
+
+                          {/* Floating heart burst particles */}
+                          {heartPops[comment.id] && (
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                              {[...Array(6)].map((_, i) => {
+                                const angle = (i * 360 / 6) + Math.random() * 20;
+                                const velocity = 25 + Math.random() * 25;
+                                const rad = (angle * Math.PI) / 180;
+                                const tx = Math.cos(rad) * velocity;
+                                const ty = Math.sin(rad) * velocity - 15;
+                                
+                                return (
+                                  <motion.span
+                                    key={i}
+                                    initial={{ opacity: 1, scale: 0.1, x: 0, y: 0 }}
+                                    animate={{ 
+                                      opacity: 0, 
+                                      scale: [0.1, 1.2, 0.3], 
+                                      x: tx, 
+                                      y: ty,
+                                      rotate: [0, Math.random() * 180 - 90]
+                                    }}
+                                    transition={{ duration: 0.8, ease: "easeOut" }}
+                                    className="absolute text-gold-500 text-[10px]"
+                                  >
+                                    ❤️
+                                  </motion.span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Button to let creator heart it */}
                       {!comment.isHeartedByCreator && creatorId === currentUser.name && (
-                        <button
-                          onClick={() => onHeartComment(comment.id)}
-                          className="opacity-0 group-hover/comment:opacity-100 flex items-center gap-1 hover:text-gold-400 transition-opacity cursor-pointer text-zinc-600"
-                          title="Heart this comment as creator"
-                        >
-                          <Heart className="w-2.5 h-2.5" /> Heart
-                        </button>
+                        <div className="relative inline-flex items-center">
+                          <button
+                            onClick={() => triggerHeartPop(comment.id)}
+                            className="opacity-0 group-hover/comment:opacity-100 flex items-center gap-1 hover:text-gold-400 transition-all cursor-pointer text-zinc-600 hover:scale-105 active:scale-95"
+                            title="Heart this comment as creator"
+                          >
+                            <Heart className="w-2.5 h-2.5" /> Heart
+                          </button>
+
+                          {/* Floating heart burst particles */}
+                          {heartPops[comment.id] && (
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                              {[...Array(6)].map((_, i) => {
+                                const angle = (i * 360 / 6) + Math.random() * 20;
+                                const velocity = 25 + Math.random() * 25;
+                                const rad = (angle * Math.PI) / 180;
+                                const tx = Math.cos(rad) * velocity;
+                                const ty = Math.sin(rad) * velocity - 15;
+                                
+                                return (
+                                  <motion.span
+                                    key={i}
+                                    initial={{ opacity: 1, scale: 0.1, x: 0, y: 0 }}
+                                    animate={{ 
+                                      opacity: 0, 
+                                      scale: [0.1, 1.2, 0.3], 
+                                      x: tx, 
+                                      y: ty,
+                                      rotate: [0, Math.random() * 180 - 90]
+                                    }}
+                                    transition={{ duration: 0.8, ease: "easeOut" }}
+                                    className="absolute text-gold-500 text-[10px]"
+                                  >
+                                    ❤️
+                                  </motion.span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -338,13 +527,13 @@ export default function CommentsSection({
                     {comment.replies.map((reply) => (
                       <div key={reply.id} className="flex gap-2.5">
                         <CornerDownRight className="w-3.5 h-3.5 text-zinc-800 flex-shrink-0 mt-0.5" />
-                        {renderAvatar(reply.userAvatar, reply.userName)}
                         <div className="text-left flex-1 min-w-0">
-                          <div className="flex items-center">
+                          <div className="flex items-center gap-1.5">
+                            {renderMiniAvatar(reply.userAvatar, reply.userName)}
                             <span className={`text-[11px] font-bold ${reply.userName === 'A Word of Wisdom' || reply.userName === 'My Dirty Lense' ? 'text-gold-400 bg-gold-500/5 px-1.5 py-0.5 rounded border border-gold-500/5' : 'text-zinc-300'}`}>
                               @{reply.userName.replace(/\s+/g, '')}
                             </span>
-                            <span className="text-[9px] text-zinc-500 font-mono ml-2">{reply.timestamp}</span>
+                            <span className="text-[9px] text-zinc-500 font-mono ml-1">• {reply.timestamp}</span>
                           </div>
                           <p className="text-[11px] text-zinc-300 mt-0.5 leading-normal">
                             {reply.text}

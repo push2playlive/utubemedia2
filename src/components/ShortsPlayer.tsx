@@ -434,7 +434,7 @@ export default function ShortsPlayer({
             >
               <ThumbsUp className="w-4.5 h-4.5 fill-current" />
             </button>
-            <span className="text-[10px] font-mono font-bold mt-1 text-zinc-300">{video.likes + (video.isLiked ? 1 : 0)}</span>
+            <span className="text-[10px] font-mono font-bold mt-1 text-zinc-300">{video.likes}</span>
           </div>
 
           {/* Dislike */}

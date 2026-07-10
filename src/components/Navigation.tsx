@@ -1,4 +1,4 @@
-import { Home, Flame, Users, Clock, ThumbsUp, Wallet, Store, BarChart3, Settings, ShieldAlert, Library, BookOpen, Music, History, Sparkles } from 'lucide-react';
+import { Home, Flame, Users, Clock, ThumbsUp, Wallet, Store, BarChart3, Settings, ShieldAlert, Library, BookOpen, Music, History, Sparkles, Layers } from 'lucide-react';
 import { Creator, Video } from '../types';
 
 interface NavigationProps {
@@ -33,6 +33,7 @@ export default function Navigation({ currentView, onNavigate, subscribedCreators
     { id: 'advertising', label: 'Advertisers Lab', icon: BookOpen },
     { id: 'creator-studio', label: 'Creator Studio', icon: BarChart3 },
     { id: 'lease-store', label: 'Lease a Store', icon: ShieldAlert },
+    { id: 'white-label-gallery', label: 'White Label Gallery', icon: Layers },
   ];
 
   const containerClasses = isMobile

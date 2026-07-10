@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Bell, Plus, Wallet, User, Menu, Settings, LogOut, CheckCircle, Store, Shield, Sparkles } from 'lucide-react';
+import { Search, Bell, Plus, Wallet, User, Menu, Settings, LogOut, CheckCircle, Store, Shield, Sparkles, Network } from 'lucide-react';
 import { UserWallet } from '../types';
+import CommandNexusDrawer from './CommandNexusDrawer';
 
 interface HeaderProps {
   wallet: UserWallet;
@@ -9,8 +10,15 @@ interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onOpenProfile: () => void;
-  currentUser: { name: string; email: string; avatar: string; isCreator: boolean };
+  currentUser: { 
+    name: string; 
+    email: string; 
+    avatar: string; 
+    isCreator: boolean;
+    role?: 'member' | 'moderator' | 'admin' | 'advertising';
+  };
   onToggleMobileMenu?: () => void;
+  onUpdateUserRole?: (role: 'member' | 'moderator' | 'admin' | 'advertising') => void;
 }
 
 export default function Header({
@@ -21,11 +29,13 @@ export default function Header({
   setSearchQuery,
   onOpenProfile,
   currentUser,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  onUpdateUserRole
 }: HeaderProps) {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [nexusDrawerOpen, setNexusDrawerOpen] = useState(false);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,16 +46,29 @@ export default function Header({
     <header className="sticky top-0 z-40 flex items-center justify-between bg-[#0a0a0c] px-4 py-2.5 border-b border-zinc-900/80" id="app-header">
       {/* Brand Logo & Hamburger */}
       <div className="flex items-center gap-3">
+        <button
+          onClick={() => setNexusDrawerOpen(true)}
+          className="p-1.5 rounded-lg bg-[#0f0f12] border border-[#ea580c]/30 text-zinc-400 hover:text-[#ea580c] cursor-pointer transition-all hover:scale-105 shadow-md shadow-[#ea580c]/5 flex items-center gap-1"
+          title="Open CommandNexus Ecosystem Launcher"
+          id="global-nexus-hamburger-btn"
+        >
+          <Menu className="w-4.5 h-4.5" />
+          <Network className="w-3.5 h-3.5 text-[#ea580c]" />
+        </button>
+
         {onToggleMobileMenu && (
           <button
             onClick={onToggleMobileMenu}
-            className="p-1.5 rounded-lg bg-[#0f0f12] border border-zinc-800 text-zinc-400 hover:text-gold-400 cursor-pointer transition-colors"
-            title="Toggle Sidebar Menu"
+            className="p-1.5 rounded-lg bg-[#0f0f12] border border-zinc-850 text-zinc-400 hover:text-gold-400 cursor-pointer transition-colors md:hidden"
+            title="Toggle Sidebar Navigation"
             id="mobile-hamburger-btn"
           >
-            <Menu className="w-4.5 h-4.5" />
+            <span className="text-[10px] uppercase font-bold tracking-wider font-mono">Menu</span>
           </button>
         )}
+        
+        <CommandNexusDrawer isOpen={nexusDrawerOpen} onClose={() => setNexusDrawerOpen(false)} />
+
         <button 
           onClick={() => onNavigate('home')}
           className="flex items-center gap-2 text-white font-semibold tracking-tight hover:opacity-90 transition-opacity cursor-pointer group"
@@ -241,6 +264,35 @@ export default function Header({
                     <CheckCircle className="w-2.5 h-2.5 text-gold-500" /> VERIFIED CREATOR
                   </span>
                 )}
+                <div className="mt-2.5 pt-2 border-t border-zinc-800/60">
+                  <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest block mb-1">SSO Role Tier</span>
+                  <div className="flex flex-wrap gap-1">
+                    {(['member', 'moderator', 'admin', 'advertising'] as const).map((r) => {
+                      const isActive = (currentUser.role || 'member') === r;
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => {
+                            if (onUpdateUserRole) onUpdateUserRole(r);
+                          }}
+                          className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase transition-all border cursor-pointer ${
+                            isActive
+                              ? r === 'admin'
+                                ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                                : r === 'moderator'
+                                ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                : r === 'advertising'
+                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                : 'bg-gold-500/20 text-gold-400 border-gold-500/30'
+                              : 'bg-zinc-950 text-zinc-500 border-zinc-900 hover:text-zinc-350'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => {

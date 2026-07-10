@@ -8,6 +8,7 @@ interface AdManagerProps {
   onCreateCampaign: (campaign: Omit<AdCampaign, 'id' | 'views' | 'clicks' | 'budgetSpent'>) => void;
   creatorMonetization: boolean;
   onToggleMonetization: () => void;
+  currentUserRole?: 'member' | 'moderator' | 'admin' | 'advertising';
 }
 
 export default function AdManager({
@@ -15,7 +16,8 @@ export default function AdManager({
   wallet,
   onCreateCampaign,
   creatorMonetization,
-  onToggleMonetization
+  onToggleMonetization,
+  currentUserRole = 'advertising'
 }: AdManagerProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [adSuccess, setAdSuccess] = useState(false);
@@ -218,6 +220,34 @@ export default function AdManager({
       ) : (
         // --- VIEW ACTIVE ADS & CREATOR MONETIZATION SLOTS ---
         <div className="space-y-6">
+          {/* Real-time ad clicks, impressions & budget statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-[#0c0c0f] border border-zinc-900/80 rounded-2xl p-4 space-y-1">
+              <span className="text-[9px] font-mono font-bold text-zinc-550 uppercase tracking-widest block">Total Placements</span>
+              <p className="text-xl font-bold text-zinc-100 font-mono">
+                {campaigns.length} <span className="text-xs text-zinc-500 font-normal">campaigns</span>
+              </p>
+            </div>
+            <div className="bg-[#0c0c0f] border border-zinc-900/80 rounded-2xl p-4 space-y-1">
+              <span className="text-[9px] font-mono font-bold text-zinc-550 uppercase tracking-widest block">Ad Impressions</span>
+              <p className="text-xl font-bold text-zinc-100 font-mono">
+                {campaigns.reduce((acc, c) => acc + (c.views || 0), 0).toLocaleString()} <span className="text-xs text-zinc-500 font-normal">views</span>
+              </p>
+            </div>
+            <div className="bg-[#0c0c0f] border border-zinc-900/80 rounded-2xl p-4 space-y-1">
+              <span className="text-[9px] font-mono font-bold text-zinc-550 uppercase tracking-widest block">Ad Click-Throughs</span>
+              <p className="text-xl font-bold text-gold-400 font-mono">
+                {campaigns.reduce((acc, c) => acc + (c.clicks || 0), 0).toLocaleString()} <span className="text-xs text-zinc-500 font-normal">clicks</span>
+              </p>
+            </div>
+            <div className="bg-[#0c0c0f] border border-zinc-900/80 rounded-2xl p-4 space-y-1">
+              <span className="text-[9px] font-mono font-bold text-zinc-550 uppercase tracking-widest block">Budget Spent</span>
+              <p className="text-xl font-bold text-[#ea580c] font-mono">
+                {campaigns.reduce((acc, c) => acc + (c.budgetSpent || 0), 0).toLocaleString()} <span className="text-xs text-zinc-500 font-normal">PPL</span>
+              </p>
+            </div>
+          </div>
+
           {/* Creator Monetization Toggle section */}
           <div className="bg-gradient-to-r from-zinc-950 via-[#0c0c0f] to-zinc-950 border border-zinc-900/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">

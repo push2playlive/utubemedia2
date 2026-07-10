@@ -23,6 +23,7 @@ interface AdminDashboardProps {
   reports?: VideoReport[];
   onUpdateReport?: (updated: VideoReport) => void;
   highlightReportId?: string;
+  currentUserRole?: 'member' | 'moderator' | 'admin' | 'advertising';
 }
 
 export default function AdminDashboard({
@@ -39,10 +40,16 @@ export default function AdminDashboard({
   onDeleteComment,
   reports = [],
   onUpdateReport,
-  highlightReportId
+  highlightReportId,
+  currentUserRole = 'admin'
 }: AdminDashboardProps) {
   // Console Mode Selector Switcher
   const [consoleMode, setConsoleMode] = useState<'creator' | 'moderator'>('moderator'); // default to moderator to highlight the new features!
+  const [mutedUsers, setMutedUsers] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ppl_muted_users');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
   const [activeSubTab, setActiveSubTab] = useState<'stats' | 'videos' | 'products'>('stats');
   
   // Moderator Sub-Tabs
@@ -236,38 +243,59 @@ export default function AdminDashboard({
             <h1 className="text-xl font-bold text-zinc-150 flex items-center gap-2">
               <span>Utube Media Administrative Workspace</span>
               <span className="text-[9px] bg-red-500/20 text-red-400 font-mono px-2 py-0.5 rounded-full border border-red-500/10 uppercase tracking-widest">
-                Admin Center
+                {currentUserRole === 'moderator' ? 'Moderator Center' : 'Admin Center'}
               </span>
             </h1>
           </div>
-          <p className="text-xs text-zinc-500">Toggle between personal Creator tools and administrative Moderator utilities for platform maintenance.</p>
+          <p className="text-xs text-zinc-500">
+            {currentUserRole === 'moderator' 
+              ? 'Moderator Active Access. Universal override metrics and creator tools are restricted.' 
+              : 'Toggle between personal Creator tools and administrative Moderator utilities for platform maintenance.'}
+          </p>
         </div>
 
         {/* Core Console Toggle Buttons */}
-        <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-900 shadow-inner w-fit">
-          <button
-            onClick={() => setConsoleMode('moderator')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-              consoleMode === 'moderator'
-                ? 'bg-red-500 text-black shadow font-black'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Moderator Panel</span>
-          </button>
-          <button
-            onClick={() => setConsoleMode('creator')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-              consoleMode === 'creator'
-                ? 'bg-gold-500 text-black shadow font-black'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Creator Console</span>
-          </button>
-        </div>
+        {currentUserRole === 'admin' ? (
+          <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-900 shadow-inner w-fit">
+            <button
+              onClick={() => setConsoleMode('moderator')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                consoleMode === 'moderator'
+                  ? 'bg-red-500 text-black shadow font-black'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Moderator Panel</span>
+            </button>
+            <button
+              onClick={() => setConsoleMode('creator')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                consoleMode === 'creator'
+                  ? 'bg-gold-500 text-black shadow font-black'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Creator Console</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-900 shadow-inner w-fit">
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold rounded-lg bg-red-500 text-black shadow font-black">
+              <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+              <span>Moderator Active</span>
+            </div>
+            <button
+              disabled
+              title="Creator Console restricted to Admin"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold rounded-lg text-zinc-600 cursor-not-allowed opacity-40"
+            >
+              <Lock className="w-3 h-3" />
+              <span>Creator Console</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ========================================== */}
@@ -568,11 +596,21 @@ export default function AdminDashboard({
                                     alt="" 
                                     className="w-7 h-7 rounded-full object-cover border border-zinc-800" 
                                   />
-                                  <span className="font-bold text-zinc-200">{com.userName}</span>
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-zinc-200">{com.userName}</span>
+                                    {mutedUsers.includes(com.userName) && (
+                                      <span className="text-[9px] text-amber-500 font-mono font-bold">🚫 MUTED (24h)</span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="p-4 max-w-sm">
                                 <p className="text-zinc-350 line-clamp-2 leading-relaxed whitespace-pre-wrap">{com.text}</p>
+                                {(reports.some(r => r.videoId === com.videoId) || com.text.toLowerCase().includes('scam') || com.text.toLowerCase().includes('fake') || com.text.toLowerCase().includes('bot') || com.text.toLowerCase().includes('spam')) && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-bold mt-1.5 border border-red-500/15 font-mono">
+                                    ⚠️ FLAG: SENSITIVE TEXT / SUSPECTED SPAM
+                                  </span>
+                                )}
                               </td>
                               <td className="p-4 whitespace-nowrap text-zinc-450 font-medium">
                                 <span className="text-[10px] text-zinc-400 underline line-clamp-1 max-w-[150px]" title={targetVid?.title || 'Unknown video'}>
@@ -586,17 +624,44 @@ export default function AdminDashboard({
                                 {com.likes} likes
                               </td>
                               <td className="p-4 whitespace-nowrap text-center">
-                                <button
-                                  onClick={() => {
-                                    if (confirm('Are you sure you want to permanently delete this comment from the database?')) {
-                                      if (onDeleteComment) onDeleteComment(com.id);
-                                    }
-                                  }}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-950/20 hover:bg-red-600 text-red-400 hover:text-black border border-red-950 hover:border-red-500 rounded-lg cursor-pointer transition-all text-[11px] font-bold"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Moderate/Purge</span>
-                                </button>
+                                <div className="flex items-center gap-2 justify-center">
+                                  <button
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to permanently delete this comment from the database?')) {
+                                        if (onDeleteComment) onDeleteComment(com.id);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-950/20 hover:bg-red-600 text-red-400 hover:text-black border border-red-950 hover:border-red-500 rounded-lg cursor-pointer transition-all text-[11px] font-bold"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Purge</span>
+                                  </button>
+
+                                  {mutedUsers.includes(com.userName) ? (
+                                    <button
+                                      onClick={() => {
+                                        const updated = mutedUsers.filter(u => u !== com.userName);
+                                        setMutedUsers(updated);
+                                        localStorage.setItem('ppl_muted_users', JSON.stringify(updated));
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 text-amber-400 hover:text-zinc-100 border border-zinc-850 rounded-lg cursor-pointer transition-all text-[11px] font-bold"
+                                    >
+                                      <span>Unmute</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        const updated = [...mutedUsers, com.userName];
+                                        setMutedUsers(updated);
+                                        localStorage.setItem('ppl_muted_users', JSON.stringify(updated));
+                                        alert(`User "${com.userName}" has been temporarily muted across all platform streams.`);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-black border border-amber-500/15 rounded-lg cursor-pointer transition-all text-[11px] font-bold"
+                                    >
+                                      <span>Mute (24h)</span>
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );

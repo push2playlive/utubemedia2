@@ -363,6 +363,47 @@ export default function ProfileSettings({
               </div>
             </div>
 
+            {/* MEMBER EXCLUSIVE: Theme Color Accent Switcher */}
+            <div className="p-4 bg-zinc-950 border border-zinc-900 rounded-xl space-y-3">
+              <span className="text-xs font-semibold text-zinc-300 block font-serif tracking-wide flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-gold-500 animate-pulse" /> Custom Neon Accent Interface (Member Feature)
+              </span>
+              <p className="text-[10px] text-zinc-500 leading-normal">
+                Choose a neon command accent color to customize your Utube Media UI borders, highlighted buttons, and active streams.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1.5">
+                {[
+                  { id: 'gold', name: 'Utube Gold', hex: '#EAB308', bg: 'bg-yellow-500' },
+                  { id: 'amber', name: 'Cosmic Amber', hex: '#F59E0B', bg: 'bg-amber-500' },
+                  { id: 'red', name: 'Sunset Red', hex: '#EF4444', bg: 'bg-red-500' },
+                  { id: 'violet', name: 'Quantum Violet', hex: '#8B5CF6', bg: 'bg-violet-500' },
+                  { id: 'cyan', name: 'Digital Cyan', hex: '#06B6D4', bg: 'bg-cyan-500' }
+                ].map((color) => {
+                  const activeColor = localStorage.getItem('ppl_accent_color') || 'gold';
+                  const isSelected = activeColor === color.id;
+                  return (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem('ppl_accent_color', color.id);
+                        alert(`Accent interface color updated to "${color.name}"! Refreshing dynamic theme layout...`);
+                        window.location.reload();
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold rounded-lg transition-all cursor-pointer border ${
+                        isSelected 
+                          ? 'border-gold-500/80 bg-zinc-900 text-zinc-100 shadow-md shadow-gold-500/5' 
+                          : 'border-zinc-900 bg-zinc-950 text-zinc-450 hover:border-zinc-800'
+                      }`}
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${color.bg}`} />
+                      <span>{color.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* External API Key Social Integrations */}
             <div className="p-4 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4">
               <div className="border-b border-zinc-900 pb-2 flex items-center justify-between">

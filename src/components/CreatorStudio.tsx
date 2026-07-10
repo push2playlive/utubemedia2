@@ -960,17 +960,17 @@ export default function CreatorStudio({
                 {/* Video uploads goal */}
                 <div className="bg-[#050507] p-4.5 rounded-xl border border-zinc-900 space-y-3">
                   <div className="flex justify-between text-[11px] font-mono">
-                    <span className="text-zinc-400">Video Uploads (90 days)</span>
-                    <span className="text-zinc-200 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      3 / 3
+                    <span className="text-zinc-400">Video Uploads Quota</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                      {userVideos.length} / Unlimited
                     </span>
                   </div>
                   {/* Progress bar */}
                   <div className="h-2.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-850">
                     <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }}></div>
                   </div>
-                  <p className="text-[10px] text-zinc-500">Completed! 3 of 3 minimum public uploads catalogued.</p>
+                  <p className="text-[10px] text-zinc-500">Unrestricted upload quota enabled! You have published {userVideos.length} stream{userVideos.length === 1 ? '' : 's'}.</p>
                 </div>
 
                 {/* Public watch hours goal */}

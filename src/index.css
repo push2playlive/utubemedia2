@@ -50,6 +50,19 @@ body {
   }
 }
 
+@keyframes theatre-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px 2px rgba(197, 160, 89, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px 4px rgba(197, 160, 89, 0.2);
+  }
+}
+
+.theatre-pulse-active {
+  animation: theatre-pulse 3s infinite ease-in-out;
+}
+
 .hover-pulse-gold {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -57,5 +70,12 @@ body {
 .hover-pulse-gold:hover {
   animation: gold-pulse 1.6s infinite ease-in-out;
 }
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 
 

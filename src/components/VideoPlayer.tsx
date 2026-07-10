@@ -198,6 +198,12 @@ export default function VideoPlayer({
     };
   }, [isPlaying, videoQuality, isRealVideo, isCongested]);
 
+
+  // Sync internal theater mode state with parent isTheatreMode prop
+  useEffect(() => {
+    setIsTheater(isTheatreMode);
+  }, [isTheatreMode]);
+
   // Sync real video playback state
   useEffect(() => {
     if (isRealVideo && videoRef.current) {
@@ -1269,10 +1275,18 @@ export default function VideoPlayer({
               </select>
 
               <button 
-                onClick={() => setIsTheater(!isTheater)}
-                className="text-white hover:text-zinc-300 transition-colors p-1 text-[10px] font-mono cursor-pointer hidden md:block"
+                onClick={onToggleTheatreMode || (() => setIsTheater(!isTheater))}
+                className={`transition-colors p-1.5 rounded-lg border flex items-center gap-1.5 cursor-pointer hidden md:flex ${
+                  isTheater 
+                    ? 'bg-gold-500/15 border-gold-500/40 text-gold-400' 
+                    : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                }`}
+                title={isTheater ? "Exit Theatre Mode" : "Theatre Mode"}
               >
-                [Theater Mode]
+                <Tv className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold">
+                  {isTheater ? 'Standard' : 'Theatre'}
+                </span>
               </button>
             </div>
           </div>
@@ -1280,50 +1294,10 @@ export default function VideoPlayer({
       </div>
 
       {/* Visual Progress Bar Panel */}
-      <div className="bg-[#0f0f12]/80 border border-zinc-900 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl backdrop-blur-sm" id="video-playback-progress-panel">
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-200 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? (
-              <Pause className="w-3.5 h-3.5 fill-current text-gold-500" />
-            ) : (
-              <Play className="w-3.5 h-3.5 fill-current text-gold-500 translate-x-[0.5px]" />
-            )}
-          </button>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-bold text-zinc-300 bg-zinc-950 px-2 py-1 rounded border border-zinc-900/60">
-              {formatTime(currentTime)}
-            </span>
-            <span className="text-zinc-600 text-xs font-mono">/</span>
-            <span className="text-[10px] font-mono text-zinc-400 bg-zinc-950 px-2 py-1 rounded border border-zinc-900/60">
-              {formatTime(durationSec)}
-            </span>
-          </div>
-
-          {activeChapterIdx !== -1 && (
-            <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-amber-400 font-bold bg-zinc-950 px-2.5 py-1 rounded border border-zinc-900/80 max-w-[140px] truncate">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0"></span>
-              <span className="truncate" title={chapters[activeChapterIdx].title}>
-                {chapters[activeChapterIdx].title}
-              </span>
-            </div>
-          )}
-
-          {isPlaying && (
-            <div className="hidden sm:flex items-end gap-0.5 h-4 ml-2">
-              <div className="w-0.5 bg-gold-500 animate-pulse h-2"></div>
-              <div className="w-0.5 bg-amber-500 animate-pulse h-3.5" style={{ animationDelay: '100ms' }}></div>
-              <div className="w-0.5 bg-gold-500 animate-pulse h-1.5" style={{ animationDelay: '200ms' }}></div>
-              <div className="w-0.5 bg-yellow-400 animate-pulse h-2.5" style={{ animationDelay: '300ms' }}></div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 w-full relative group/progress h-5 flex items-center">
+      <div className="bg-[#0f0f12]/80 border border-zinc-900 rounded-2xl p-4 flex flex-col gap-3.5 shadow-xl backdrop-blur-sm" id="video-playback-progress-panel">
+        
+        {/* ROW 1: Progress Bar (Takes 100% width) */}
+        <div className="w-full relative group/progress h-5 flex items-center">
           <div
             onClick={handleProgressBarClick}
             className="w-full h-1.5 bg-zinc-800 hover:bg-zinc-750 rounded-full cursor-pointer relative group-hover/progress:h-2.5 transition-all duration-150"
@@ -1337,126 +1311,180 @@ export default function VideoPlayer({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          {/* Mute Button */}
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted || volume === 0 ? (
-              <VolumeX className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-            ) : (
-              <Volume2 className="w-3.5 h-3.5 text-gold-500" />
+        {/* ROW 2: Left & Right Controls */}
+        <div className="w-full flex flex-col lg:flex-row items-center justify-between gap-4">
+          
+          {/* Left Controls Group */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-200 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+                title={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? (
+                  <Pause className="w-3.5 h-3.5 fill-current text-gold-500" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 fill-current text-gold-500 translate-x-[0.5px]" />
+                )}
+              </button>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold text-zinc-300 bg-zinc-950 px-2 py-1 rounded border border-zinc-900/60">
+                  {formatTime(currentTime)}
+                </span>
+                <span className="text-zinc-600 text-xs font-mono">/</span>
+                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-950 px-2 py-1 rounded border border-zinc-900/60">
+                  {formatTime(durationSec)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Mute Button */}
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                title={isMuted ? "Unmute" : "Mute"}
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5 text-gold-500" />
+                )}
+              </button>
+
+              {/* Volume Slider */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => {
+                    setVolume(parseFloat(e.target.value));
+                    if (isMuted) setIsMuted(false);
+                  }}
+                  className="w-16 sm:w-20 accent-gold-500 cursor-pointer h-1 rounded-full bg-zinc-800"
+                />
+                <span className="text-[10px] font-mono text-zinc-400 w-8 text-right">
+                  {Math.round((isMuted ? 0 : volume) * 100)}%
+                </span>
+              </div>
+            </div>
+
+            {activeChapterIdx !== -1 && (
+              <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-amber-400 font-bold bg-zinc-950 px-2.5 py-1 rounded border border-zinc-900/80 max-w-[140px] truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0"></span>
+                <span className="truncate" title={chapters[activeChapterIdx].title}>
+                  {chapters[activeChapterIdx].title}
+                </span>
+              </div>
             )}
-          </button>
 
-          {/* Volume Slider */}
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={(e) => {
-                setVolume(parseFloat(e.target.value));
-                if (isMuted) setIsMuted(false);
-              }}
-              className="w-16 md:w-20 accent-gold-500 cursor-pointer h-1 rounded-full bg-zinc-800"
-            />
-            <span className="text-[10px] font-mono text-zinc-400 w-8 text-right">
-              {Math.round((isMuted ? 0 : volume) * 100)}%
-            </span>
+            {isPlaying && (
+              <div className="hidden sm:flex items-end gap-0.5 h-4 ml-2">
+                <div className="w-0.5 bg-gold-500 animate-pulse h-2"></div>
+                <div className="w-0.5 bg-amber-500 animate-pulse h-3.5" style={{ animationDelay: '100ms' }}></div>
+                <div className="w-0.5 bg-gold-500 animate-pulse h-1.5" style={{ animationDelay: '200ms' }}></div>
+                <div className="w-0.5 bg-yellow-400 animate-pulse h-2.5" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            )}
           </div>
 
-          {/* Playback Speed Selector */}
-          <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-900 rounded-lg px-2 py-1">
-            <Gauge className="w-3 h-3 text-zinc-400" />
-            <select
-              value={playbackSpeed}
-              onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-              className="bg-transparent text-[10px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer border-none p-0 pr-1 select-none"
-              title="Playback Speed"
-            >
-              <option value="0.5" className="bg-zinc-900 text-zinc-300">0.5x</option>
-              <option value="1" className="bg-zinc-900 text-zinc-300">1.0x</option>
-              <option value="1.5" className="bg-zinc-900 text-zinc-300">1.5x</option>
-              <option value="2" className="bg-zinc-900 text-zinc-300">2.0x</option>
-            </select>
-          </div>
+          {/* Right Controls Group */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto justify-end">
+            
+            {/* Playback Speed Selector */}
+            <div className="flex items-center gap-1 bg-zinc-950 border border-zinc-900 rounded-lg px-2 py-1">
+              <Gauge className="w-3 h-3 text-zinc-400" />
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                className="bg-transparent text-[10px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer border-none p-0 pr-1 select-none"
+                title="Playback Speed"
+              >
+                <option value="0.5" className="bg-zinc-900 text-zinc-300">0.5x</option>
+                <option value="1" className="bg-zinc-900 text-zinc-300">1.0x</option>
+                <option value="1.5" className="bg-zinc-900 text-zinc-300">1.5x</option>
+                <option value="2" className="bg-zinc-900 text-zinc-300">2.0x</option>
+              </select>
+            </div>
 
-          {/* Diagnostics Stats Toggle */}
-          <button
-            onClick={() => setShowDiagnostics(!showDiagnostics)}
-            className={`p-1.5 rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
-              showDiagnostics
-                ? 'bg-red-500/15 border-red-500/40 text-red-400 font-bold'
-                : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-            }`}
-            title="Toggle Streaming Diagnostics (Stats for Nerds)"
-            id="video-diagnostics-toggle"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold hidden sm:inline">
-              Stats: {showDiagnostics ? 'ON' : 'OFF'}
-            </span>
-          </button>
-
-          {/* Auto-loop Toggle */}
-          <button
-            onClick={() => setIsLoopEnabled(!isLoopEnabled)}
-            className={`p-1.5 rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
-              isLoopEnabled
-                ? 'bg-gold-500/15 border-gold-500/40 text-gold-400'
-                : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-            }`}
-            title="Toggle Auto-Loop"
-            id="video-autoloop-toggle"
-          >
-            <Repeat className="w-3.5 h-3.5 text-gold-500" />
-            <span className="text-[10px] font-bold hidden sm:inline">
-              Loop: {isLoopEnabled ? 'ON' : 'OFF'}
-            </span>
-          </button>
-
-          {/* Quality/Resolution dropdown */}
-          <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-900 rounded-lg px-2 py-1" id="quality-selector-container">
-            <span className="text-[10px] font-mono font-bold text-zinc-400">Quality</span>
-            <select
-              value={videoQuality}
-              onChange={(e) => setVideoQuality(e.target.value)}
-              className="bg-transparent text-[10px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer border-none p-0 pr-1 select-none"
-              title="Stream Resolution"
-            >
-              <option value="360" className="bg-zinc-900 text-zinc-300">360p (SD)</option>
-              <option value="720" className="bg-zinc-900 text-zinc-300">720p (HD)</option>
-              <option value="1080" className="bg-zinc-900 text-zinc-300">1080p (FHD)</option>
-              <option value="cinema_360" className="bg-zinc-900 text-gold-400">Cinema 360p</option>
-            </select>
-          </div>
-
-          {/* Theatre Mode Toggle */}
-          {onToggleTheatreMode && (
+            {/* Diagnostics Stats Toggle */}
             <button
-              onClick={onToggleTheatreMode}
-              className={`p-1.5 rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
-                isTheatreMode
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+              className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors cursor-pointer ${
+                showDiagnostics
+                  ? 'bg-red-500/15 border-red-500/40 text-red-400 font-bold'
+                  : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Toggle Streaming Diagnostics (Stats for Nerds)"
+              id="video-diagnostics-toggle"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold hidden sm:inline">
+                Stats: {showDiagnostics ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            {/* Auto-loop Toggle */}
+            <button
+              onClick={() => setIsLoopEnabled(!isLoopEnabled)}
+              className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors cursor-pointer ${
+                isLoopEnabled
                   ? 'bg-gold-500/15 border-gold-500/40 text-gold-400'
                   : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
               }`}
-              title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}
+              title="Toggle Auto-Loop"
+              id="video-autoloop-toggle"
             >
-              <Tv className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-semibold hidden md:inline">
-                {isTheatreMode ? 'Standard' : 'Theatre'}
+              <Repeat className="w-3.5 h-3.5 text-gold-500" />
+              <span className="text-[10px] font-bold hidden sm:inline">
+                Loop: {isLoopEnabled ? 'ON' : 'OFF'}
               </span>
             </button>
-          )}
 
-          <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider bg-zinc-950 px-2.5 py-1 rounded-full border border-zinc-900/50 hidden sm:inline-block">
-            {video.adEnabled ? 'Ad-Supported Stream' : 'Premium Standard Play'}
-          </span>
+            {/* Quality/Resolution dropdown */}
+            <div className="flex items-center gap-1 bg-zinc-950 border border-zinc-900 rounded-lg px-2 py-1" id="quality-selector-container">
+              <span className="text-[10px] font-mono font-bold text-zinc-400">Quality</span>
+              <select
+                value={videoQuality}
+                onChange={(e) => setVideoQuality(e.target.value)}
+                className="bg-transparent text-[10px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer border-none p-0 pr-1 select-none"
+                title="Stream Resolution"
+              >
+                <option value="360" className="bg-zinc-900 text-zinc-300">360p</option>
+                <option value="720" className="bg-zinc-900 text-zinc-300">720p</option>
+                <option value="1080" className="bg-zinc-900 text-zinc-300">1080p</option>
+                <option value="cinema_360" className="bg-zinc-900 text-gold-400">Cinema</option>
+              </select>
+            </div>
+
+            {/* Theatre Mode Toggle */}
+            {onToggleTheatreMode && (
+              <button
+                onClick={onToggleTheatreMode}
+                className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors cursor-pointer ${
+                  isTheatreMode
+                    ? 'bg-gold-500/15 border-gold-500/40 text-gold-400'
+                    : 'bg-zinc-950 border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                }`}
+                title={isTheatreMode ? "Exit Theatre Mode" : "Theatre Mode"}
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-semibold hidden md:inline">
+                  {isTheatreMode ? 'Standard' : 'Theatre'}
+                </span>
+              </button>
+            )}
+
+            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider bg-zinc-950 px-2.5 py-1 rounded-full border border-zinc-900/50 hidden sm:inline-block">
+              {video.adEnabled ? 'Ad-Supported Stream' : 'Premium Standard Play'}
+            </span>
+          </div>
+
         </div>
       </div>
 
@@ -1523,7 +1551,7 @@ export default function VideoPlayer({
                 onClick={() => onLike(video.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-1 text-xs font-medium rounded-full cursor-pointer transition-colors ${video.isLiked ? 'bg-gold-500/10 text-gold-400 border border-gold-500/15' : 'text-zinc-300 hover:bg-zinc-800'}`}
               >
-                👍 <span className="font-mono">{video.likes + (video.isLiked ? 1 : 0)}</span>
+                👍 <span className="font-mono">{video.likes}</span>
               </button>
               <div className="w-px h-4 bg-zinc-800"></div>
               <button
